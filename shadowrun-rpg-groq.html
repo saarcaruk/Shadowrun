@@ -1,0 +1,2972 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shadowrun — הרצת צל [Groq]</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;600;700&family=Noto+Sans+Hebrew:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #080b0f;
+    --bg2:      #0d1117;
+    --bg3:      #111820;
+    --panel:    #0a1020;
+    --cyan:     #00e5ff;
+    --cyan-dim: #007a8a;
+    --cyan-glow:rgba(0,229,255,0.12);
+    --orange:   #ff6a00;
+    --orange-dim:#7a3000;
+    --green:    #39ff14;
+    --green-dim:#1a5c08;
+    --red:      #ff2244;
+    --text:     #c8d8e8;
+    --text-dim: #4a6070;
+    --border:   #1a2a3a;
+    --border-bright: #00e5ff44;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    font-size: 16px;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 0% 100%, rgba(255,106,0,0.07) 0%, transparent 50%),
+      radial-gradient(ellipse at 100% 0%, rgba(0,229,255,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline effect */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  #app { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-bright);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 22px;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan), 0 0 40px rgba(0,229,255,0.4);
+    letter-spacing: 3px;
+  }
+
+  .logo span { color: var(--orange); text-shadow: 0 0 20px var(--orange); }
+
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .btn-reset {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+  .btn-reset:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 220px;
+    background: var(--panel);
+    border-left: 1px solid var(--border-bright);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 20px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .sidebar-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
+  }
+
+  .char-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--cyan);
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .char-name:hover { color: var(--cyan-dim); }
+
+  .char-archetype {
+    font-size: 12px;
+    color: var(--orange);
+    font-family: 'Share Tech Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.5);
+    font-size: 13px;
+  }
+  .stat-label { color: var(--text-dim); }
+  .stat-val {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--text);
+    font-size: 12px;
+  }
+  .stat-val.good { color: var(--green); }
+  .stat-val.warn { color: var(--orange); }
+  .stat-val.bad  { color: var(--red); }
+
+  .location-box {
+    background: rgba(0,229,255,0.04);
+    border: 1px solid var(--border-bright);
+    padding: 8px;
+  }
+  .location-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .location-val {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.3;
+  }
+
+  .nuyen-box {
+    background: rgba(255,106,0,0.06);
+    border: 1px solid var(--orange-dim);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nuyen-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    letter-spacing: 1px;
+  }
+  .nuyen-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    color: var(--orange);
+    text-shadow: 0 0 10px var(--orange);
+  }
+  .nuyen-delta {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    position: absolute;
+    right: 8px;
+    top: -18px;
+    animation: deltaFade 2s ease-out forwards;
+    pointer-events: none;
+  }
+  .nuyen-delta.positive { color: var(--green); }
+  .nuyen-delta.negative { color: var(--red); }
+  @keyframes deltaFade {
+    0%   { opacity: 1; transform: translateY(0); }
+    60%  { opacity: 1; transform: translateY(-12px); }
+    100% { opacity: 0; transform: translateY(-20px); }
+  }
+  .nuyen-box { position: relative; }
+
+  /* ── CHAT AREA ── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+
+  /* GM message */
+  .msg-gm {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    max-width: 85%;
+  }
+
+  .gm-avatar {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--orange), #ff3300);
+    border-radius: 0;
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: white;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  .gm-bubble {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-right: 3px solid var(--orange);
+    padding: 12px 16px;
+    line-height: 1.7;
+    font-size: 15px;
+    position: relative;
+  }
+
+  .gm-bubble::before {
+    content: 'GAME MASTER';
+    display: block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--orange);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  /* Player message */
+  .msg-player {
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    max-width: 75%;
+    gap: 4px;
+  }
+
+  .player-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+  }
+
+  .player-bubble {
+    background: rgba(0,229,255,0.07);
+    border: 1px solid var(--cyan-dim);
+    padding: 10px 14px;
+    line-height: 1.6;
+    font-size: 15px;
+    text-align: right;
+  }
+
+  /* System message */
+  .msg-system {
+    align-self: center;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  /* Typing indicator */
+  .typing {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    max-width: 85%;
+  }
+  .typing-dots {
+    display: flex;
+    gap: 5px;
+    padding: 14px 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-right: 3px solid var(--orange);
+  }
+  .typing-dots span {
+    width: 6px; height: 6px;
+    background: var(--orange);
+    border-radius: 50%;
+    animation: blink 1.2s infinite;
+  }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%,80%,100% { opacity: 0.2; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1); }
+  }
+
+  /* ── INPUT BAR ── */
+  .input-bar {
+    border-top: 1px solid var(--border-bright);
+    background: var(--panel);
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .input-prefix {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--cyan);
+    font-size: 16px;
+    padding-bottom: 10px;
+    flex-shrink: 0;
+  }
+
+  textarea {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    font-size: 15px;
+    padding: 10px 14px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+    max-height: 120px;
+    min-height: 44px;
+    transition: border-color 0.2s;
+    direction: rtl;
+  }
+  textarea:focus { border-color: var(--cyan-dim); }
+  textarea::placeholder { color: var(--text-dim); }
+
+  #sendBtn {
+    background: linear-gradient(135deg, var(--cyan-dim), #004a55);
+    border: 1px solid var(--cyan-dim);
+    color: var(--cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    height: 44px;
+  }
+  #sendBtn:hover { background: linear-gradient(135deg, #005566, #003344); box-shadow: 0 0 20px rgba(0,229,255,0.2); }
+  #sendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Setup screen */
+  #setupScreen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 24px;
+    padding: 30px;
+    overflow-y: auto;
+    min-height: 100vh;
+  }
+
+  .setup-logo {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 36px;
+    color: var(--cyan);
+    text-shadow: 0 0 30px var(--cyan), 0 0 60px rgba(0,229,255,0.3);
+    letter-spacing: 6px;
+    text-align: center;
+  }
+  .setup-logo .sr { color: var(--orange); text-shadow: 0 0 30px var(--orange); }
+  .setup-subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    text-align: center;
+  }
+
+  .setup-card {
+    background: var(--panel);
+    border: 1px solid var(--border-bright);
+    padding: 28px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .setup-field label {
+    display: block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .setup-field input, .setup-field select {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    font-size: 15px;
+    padding: 10px 14px;
+    outline: none;
+    direction: rtl;
+  }
+  .setup-field input:focus, .setup-field select:focus { border-color: var(--cyan-dim); }
+  .setup-field select option { background: var(--bg2); }
+
+  .setup-row { display: flex; gap: 12px; }
+  .setup-row .setup-field { flex: 1; }
+
+  #startBtn {
+    background: linear-gradient(135deg, var(--orange-dim), #3a1800);
+    border: 1px solid var(--orange);
+    color: var(--orange);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 3px;
+    padding: 14px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.3s;
+    text-shadow: 0 0 10px var(--orange);
+  }
+  #startBtn:hover {
+    background: linear-gradient(135deg, #7a3000, #4a1500);
+    box-shadow: 0 0 30px rgba(255,106,0,0.3);
+  }
+
+  .resume-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+  .resume-icon {
+    font-size: 28px;
+    filter: drop-shadow(0 0 8px var(--cyan));
+  }
+  .resume-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 16px;
+    color: var(--cyan);
+    letter-spacing: 3px;
+    text-shadow: 0 0 12px var(--cyan);
+  }
+  .resume-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+  .resume-char {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.8;
+    margin-bottom: 4px;
+  }
+  .btn-resume {
+    flex: 2;
+    background: linear-gradient(135deg, var(--cyan-dim), #003344);
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 2px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-shadow: 0 0 10px var(--cyan);
+  }
+  .btn-resume:hover { box-shadow: 0 0 20px rgba(0,229,255,0.25); }
+  .btn-new {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-new:hover { border-color: var(--orange); color: var(--orange); }
+  .api-note {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+  .wealth-select {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .wealth-opt {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .wealth-opt:hover { border-color: var(--cyan-dim); }
+  .wealth-opt.selected {
+    border-color: var(--cyan);
+    background: rgba(0,229,255,0.06);
+  }
+  .wealth-icon { font-size: 18px; flex-shrink: 0; }
+  .wealth-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    min-width: 70px;
+  }
+  .wealth-opt.selected .wealth-name { color: var(--cyan); }
+  .wealth-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+  }
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  /* scrollbar for sidebar */
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  /* ── PORTRAIT ── */
+  .portrait-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-height: 140px;
+    background: var(--bg2);
+    border: 1px solid var(--border-bright);
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .portrait-wrap:hover .portrait-overlay { opacity: 1; }
+  .portrait-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.7) contrast(1.1);
+  }
+  .portrait-placeholder {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--text-dim);
+  }
+  .portrait-placeholder svg { opacity: 0.3; }
+  .portrait-placeholder span {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    opacity: 0.5;
+  }
+  .portrait-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,229,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan);
+    letter-spacing: 2px;
+  }
+  .portrait-scan {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    animation: scan 3s linear infinite;
+  }
+  @keyframes scan {
+    0%   { bottom: 0%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { bottom: 100%; opacity: 0; }
+  }
+  #portraitInput { display: none; }
+
+  /* ── INVENTORY ── */
+  .inventory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .inv-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text);
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.4);
+  }
+  .inv-item::before {
+    content: '▸';
+    color: var(--cyan-dim);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .inv-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    padding: 4px 0;
+  }
+  .inv-item .inv-remove {
+    margin-right: auto;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    background: none;
+    border: none;
+    padding: 0 2px;
+  }
+  .inv-item:hover .inv-remove { opacity: 1; color: var(--red); }
+
+  /* ── AMMO TRACKING ── */
+  .inv-ammo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: auto;
+    flex-shrink: 0;
+  }
+  .inv-ammo-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: none;
+    border: 1px solid var(--border);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  .inv-ammo-btn:hover { border-color: var(--cyan-dim); color: var(--cyan); }
+  .inv-ammo-val {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    min-width: 20px;
+    text-align: center;
+  }
+  .inv-ammo-val.low { color: var(--red); }
+
+  /* ── HP BAR ── */
+  .hp-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(26,42,58,0.5);
+  }
+  .hp-bar-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+  .hp-bar-label { color: var(--text-dim); }
+  .hp-bar-val { font-family: 'Share Tech Mono', monospace; font-size: 11px; }
+  .hp-bar-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .hp-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease, background 0.3s;
+  }
+  .hp-bar-fill.phys { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .hp-bar-fill.stun { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+  .hp-bar-fill.essence { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+
+  /* ── OOC MESSAGE ── */
+  .msg-ooc {
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    max-width: 75%;
+    gap: 4px;
+  }
+  .ooc-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+  .ooc-bubble {
+    background: rgba(255,255,255,0.04);
+    border: 1px dashed var(--border);
+    border-color: #3a3a5a;
+    padding: 8px 14px;
+    line-height: 1.6;
+    font-size: 14px;
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: right;
+  }
+  .msg-gm-ooc .gm-bubble::before { content: 'GM // OOC'; color: #a78bfa; }
+  .msg-gm-ooc .gm-bubble {
+    border-right-color: #a78bfa;
+    background: rgba(167,139,250,0.06);
+    color: #c4b5fd;
+  }
+
+  /* ── SIDEBAR TABS ── */
+  .sidebar-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+  }
+  .sidebar-tab {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 5px 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+  }
+  .sidebar-tab.active { color: var(--cyan); border-color: var(--cyan-dim); background: rgba(0,229,255,0.05); }
+  .sidebar-tab:hover:not(.active) { color: var(--text); border-color: var(--border-bright); }
+
+  /* ── CONTACTS ── */
+  .contacts-list { display: flex; flex-direction: column; gap: 6px; }
+  .contact-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-right: 2px solid var(--cyan-dim);
+    padding: 7px 10px;
+    cursor: default;
+  }
+  .contact-name {
+    font-size: 12px;
+    color: var(--cyan);
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .contact-role {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--orange);
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .contact-loyalty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+  .contact-card:hover { border-color: var(--cyan-dim); }
+  .contact-remove {
+    float: left;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 10px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    padding: 0;
+  }
+  .contact-card:hover .contact-remove { opacity: 1; color: var(--red); }
+  .contacts-empty {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    padding: 4px 0;
+  }
+
+  /* ── REGENERATE BUTTON ── */
+  .gm-bubble-wrap { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .btn-regen {
+    align-self: flex-start;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 3px 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    opacity: 0;
+  }
+  .msg-gm:hover .btn-regen { opacity: 1; }
+  .btn-regen:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* ── GM SETTINGS MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-box {
+    background: var(--panel);
+    border: 1px solid var(--border-bright);
+    padding: 24px;
+    width: 420px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .modal-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--cyan);
+    letter-spacing: 3px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .setting-row label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--cyan-dim);
+    letter-spacing: 2px;
+  }
+  .setting-row select, .setting-row input[type="range"] {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Sans Hebrew', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+    direction: rtl;
+  }
+  .setting-row select:focus { border-color: var(--cyan-dim); }
+  .modal-btns { display: flex; gap: 10px; }
+  .btn-modal-save {
+    flex: 2;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    background: rgba(0,229,255,0.08);
+    border: 1px solid var(--cyan-dim);
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-modal-save:hover { box-shadow: 0 0 15px rgba(0,229,255,0.2); }
+  .btn-modal-cancel {
+    flex: 1;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-modal-cancel:hover { border-color: var(--red); color: var(--red); }
+
+  /* ── SESSION END LOG ── */
+  .session-log {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    padding: 14px;
+    font-size: 14px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre-wrap;
+    max-height: 300px;
+    overflow-y: auto;
+    direction: rtl;
+  }
+  .session-log::-webkit-scrollbar { width: 3px; }
+  .session-log::-webkit-scrollbar-thumb { background: var(--cyan-dim); }
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen">
+  <div class="setup-logo"><span class="sr">SHADOW</span>RUN</div>
+  <div class="setup-subtitle">// TACTICAL RPG — AI GAME MASTER //</div>
+
+  <!-- RESUME PANEL (shown only if save exists) -->
+  <div class="setup-card" id="resumeCard" style="display:none">
+    <div class="resume-header">
+      <div class="resume-icon">⚡</div>
+      <div>
+        <div class="resume-title">SESSION FOUND</div>
+        <div class="resume-sub">// נמצאה דמות קיימת //</div>
+      </div>
+    </div>
+    <div class="resume-char" id="resumeCharInfo">—</div>
+    <div class="setup-field" style="margin-top:8px">
+      <label>Groq API Key</label>
+      <input type="password" id="resumeApiKey" placeholder="gsk_..." />
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn-resume" onclick="resumeGame()">// המשך //</button>
+      <button class="btn-new" onclick="showNewGame()">// דמות חדשה //</button>
+    </div>
+    <div style="margin-top:8px;text-align:center">
+      <button onclick="loadFromFile()" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);background:transparent;border:1px solid var(--border);padding:6px 14px;cursor:pointer;letter-spacing:1px;" onmouseover="this.style.borderColor='var(--cyan-dim)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">📂 טען דמות מקובץ</button>
+    </div>
+  </div>
+
+  <!-- NEW CHAR FORM -->
+  <div class="setup-card" id="newGameCard">
+    <div class="setup-row">
+      <div class="setup-field">
+        <label>שם הרנר</label>
+        <input type="text" id="charName" placeholder="Snake Eyes..." />
+      </div>
+      <div class="setup-field">
+        <label>ארכיטייפ</label>
+        <select id="charType" onchange="updateSubtype()">
+          <option value="Street Samurai">Street Samurai</option>
+          <option value="Decker">Decker</option>
+          <option value="Mage">Mage</option>
+          <option value="Face">Face</option>
+          <option value="Adept">Adept</option>
+          <option value="Rigger">Rigger</option>
+          <option value="Shaman">Shaman</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- SUBTYPE ROW — shown dynamically -->
+    <div class="setup-field" id="subtypeRow" style="display:none">
+      <label id="subtypeLabel">התמחות</label>
+      <select id="charSubtype"></select>
+    </div>
+
+    <!-- SPELL SELECTION — shown for Mage/Shaman -->
+    <div class="setup-field" id="spellRow" style="display:none">
+      <label id="spellLabel">בחר 4 לחשים התחלתיים</label>
+      <div id="spellGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;"></div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:4px;">נבחרו: <span id="spellCount">0</span>/4</div>
+    </div>
+
+    <div class="setup-row">
+      <div class="setup-field">
+        <label>גזע</label>
+        <select id="charRace">
+          <option value="Human">Human (אנושי)</option>
+          <option value="Elf">Elf (אלפי)</option>
+          <option value="Dwarf">Dwarf (ננסי)</option>
+          <option value="Ork">Ork (אורקי)</option>
+          <option value="Troll">Troll (טרולי)</option>
+        </select>
+      </div>
+      <div class="setup-field">
+        <label>מין</label>
+        <select id="charGender">
+          <option value="זכר">זכר</option>
+          <option value="נקבה">נקבה</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="setup-field">
+      <label>עיר / מיקום</label>
+      <select id="charCity">
+        <option value="Seattle">Seattle — UCAS, מרכז הצללים הקלאסי</option>
+        <option value="Berlin">Berlin — ADL, אנרכיה ומשחק חופשי</option>
+        <option value="Hong Kong">Hong Kong — אזור חופשי, שוק עצום</option>
+        <option value="Tokyo">Tokyo — Japanacorps, ציביליזציה אכזרית</option>
+        <option value="Cairo">Cairo — CAS, מגיה עתיקה ופוליטיקה</option>
+        <option value="São Paulo">São Paulo — ברזיל, כאוס עירוני</option>
+        <option value="London">London — UCAS, ערפל ומסורת</option>
+        <option value="Denver">Denver — נשלטת ע"י Ghostwalker הדרקון</option>
+        <option value="Chicago">Chicago — חרבה אחרי פלישת רוח החרקים</option>
+        <option value="New York">New York — מגה-קורפ שולטות, צפיפות קיצונית</option>
+        <option value="Los Angeles">Los Angeles — גנגים, סלבס, עוני קיצוני</option>
+        <option value="Boston">Boston — אחרי Technomancer Quarantine</option>
+        <option value="Tel Aviv">Tel Aviv — מזרח תיכון קיברפאנק, ביטחון ופוליטיקה</option>
+        <option value="Mexico City">Mexico City — Aztechnology שולטת, מאגיה אזטקית</option>
+      </select>
+    </div>
+
+    <div class="setup-field">
+      <label>רמת התחלה</label>
+      <div class="wealth-select" id="wealthSelect">
+        <div class="wealth-opt selected" data-val="broke" onclick="selectWealth(this)">
+          <div class="wealth-icon">🪙</div>
+          <div class="wealth-name">חסר כול</div>
+          <div class="wealth-desc">5,000¥ · התחלה קשה · ריצות נואשות</div>
+        </div>
+        <div class="wealth-opt" data-val="normal" onclick="selectWealth(this)">
+          <div class="wealth-icon">💰</div>
+          <div class="wealth-name">רגיל</div>
+          <div class="wealth-desc">10,000¥ · ציוד סטנדרטי · ריצות רגילות</div>
+        </div>
+        <div class="wealth-opt" data-val="rich" onclick="selectWealth(this)">
+          <div class="wealth-icon">💎</div>
+          <div class="wealth-name">עשיר</div>
+          <div class="wealth-desc">30,000¥ · ציוד מתקדם · ריצות גדולות</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="setup-field">
+      <label>Groq API Key</label>
+      <input type="password" id="apiKey" placeholder="gsk_..." />
+    </div>
+
+    <button id="startBtn" onclick="startGame()">// JACK IN //</button>
+    <div class="api-note">המשחק רץ מקומית — המפתח לא נשמר בשרת</div>
+    <div style="margin-top:8px;text-align:center">
+      <button onclick="loadFromFile()" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);background:transparent;border:1px solid var(--border);padding:6px 14px;cursor:pointer;letter-spacing:1px;" onmouseover="this.style.borderColor='var(--cyan-dim)';this.style.color='var(--cyan)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-dim)'">📂 טען דמות מקובץ</button>
+    </div>
+  </div><!-- end newGameCard -->
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <header>
+    <div class="logo">SHADOW<span>RUN</span></div>
+    <div class="header-right">
+      <div class="status-dot"></div>
+      <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;">MATRIX LINK ACTIVE</span>
+      <button class="btn-reset" onclick="openShop()" style="border-color:var(--orange-dim);color:var(--orange)">SHOP</button>
+      <button class="btn-reset" onclick="openMission()" style="border-color:var(--orange-dim);color:var(--orange)">MISSION</button>
+      <button class="btn-reset" onclick="openContacts()" style="border-color:var(--cyan-dim);color:var(--cyan)">CONTACTS</button>
+      <button class="btn-reset" onclick="openGMSettings()" style="border-color:var(--cyan-dim);color:var(--cyan)">GM</button>
+      <button class="btn-reset" onclick="openRules()" style="border-color:var(--text-dim);color:var(--text-dim)">RULES</button>
+      <button class="btn-reset" onclick="exportSave()" style="border-color:var(--green-dim);color:var(--green)" title="ייצוא שמירה">💾</button>
+      <button class="btn-reset" onclick="importSave()" style="border-color:var(--green-dim);color:var(--green)" title="ייבוא שמירה">📂</button>
+      <button class="btn-reset" onclick="endSession()" style="border-color:var(--green-dim);color:var(--green)">END</button>
+      <button class="btn-reset" onclick="resetGame()">RESET</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div>
+        <div class="sidebar-title">RUNNER ID</div>
+        <div class="char-name" id="sideCharName">—</div>
+        <div class="char-archetype" id="sideCharType">—</div>
+      </div>
+
+      <div>
+        <div class="sidebar-title">LOCATION</div>
+        <div class="location-box">
+          <div class="location-label">CURRENT</div>
+          <div class="location-val" id="statLocation">Seattle Sprawl</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-title">VITALS</div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar-label-row">
+            <span class="hp-bar-label">Physical</span>
+            <span class="hp-bar-val good" id="statHP">10/10</span>
+          </div>
+          <div class="hp-bar-track"><div class="hp-bar-fill phys" id="barHP" style="width:100%"></div></div>
+        </div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar-label-row">
+            <span class="hp-bar-label">Stun</span>
+            <span class="hp-bar-val" style="color:var(--cyan)" id="statStun">10/10</span>
+          </div>
+          <div class="hp-bar-track"><div class="hp-bar-fill stun" id="barStun" style="width:100%"></div></div>
+        </div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar-label-row">
+            <span class="hp-bar-label">Essence</span>
+            <span class="hp-bar-val warn" id="statEssence" title="לחץ לעדכון ידני" style="cursor:pointer" onclick="manualUpdateEssence()">6.0</span>
+          </div>
+          <div class="hp-bar-track"><div class="hp-bar-fill essence" id="barEssence" style="width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="nuyen-box">
+        <span class="nuyen-label">¥ NUYEN</span>
+        <span class="nuyen-val" id="statNuyen">5,000</span>
+      </div>
+
+      <div>
+        <div class="sidebar-title">HEAT</div>
+        <div class="stat-row">
+          <span class="stat-label">Notoriety</span>
+          <span class="stat-val" id="statNotoriety">0</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">Street Cred</span>
+          <span class="stat-val good" id="statCred">0</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="sidebar-title">GEAR &amp; INVENTORY</div>
+        <div class="inventory-list" id="inventoryList">
+          <div class="inv-empty">// NO GEAR LOADED //</div>
+        </div>
+      </div>
+
+      <div id="spellsPanel" style="display:none">
+        <div class="sidebar-title">SPELLS</div>
+        <div id="spellsList" class="inventory-list"></div>
+      </div>
+    </div><!-- end sidebar -->
+
+    <!-- CHAT -->
+    <div class="chat-area">
+      <div class="messages" id="messages"></div>
+      <div class="input-bar">
+        <span class="input-prefix">&gt;_</span>
+        <textarea id="userInput" placeholder="מה אתה עושה? (השתמש ב {{ }} לשאלות OOC)" rows="1"
+          onkeydown="handleKey(event)"
+          oninput="autoResize(this)"></textarea>
+        <button id="sendBtn" onclick="sendMessage()">SEND</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP OVERLAY — EMBEDDED -->
+<div id="shopOverlay" style="display:none;position:fixed;inset:0;z-index:150;background:var(--bg);flex-direction:column;">
+
+<style>
+.shop-header { background:var(--panel);border-bottom:1px solid var(--border-bright);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0; }
+.shop-title { font-family:'Share Tech Mono',monospace;font-size:16px;color:var(--orange);text-shadow:0 0 15px var(--orange);letter-spacing:3px; }
+.shop-nuyen-display { font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--orange); }
+.btn-shop-close { font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--red);background:rgba(255,34,68,0.08);border:1px solid var(--red);padding:6px 16px;cursor:pointer;transition:all 0.2s;letter-spacing:1px; }
+.btn-shop-close:hover { background:rgba(255,34,68,0.2);box-shadow:0 0 15px rgba(255,34,68,0.3); }
+.shop-body { display:flex;flex:1;overflow:hidden; }
+.cat-sidebar { width:170px;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column;padding:12px 8px;gap:4px;flex-shrink:0;overflow-y:auto; }
+.cat-btn { font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;color:var(--text-dim);background:transparent;border:1px solid transparent;padding:8px 10px;cursor:pointer;text-align:right;transition:all 0.15s; }
+.cat-btn:hover { color:var(--text);border-color:var(--border); }
+.cat-btn.active { color:var(--cyan);border-color:var(--cyan-dim);background:rgba(0,229,255,0.05); }
+.shop-items-area { flex:1;display:flex;flex-direction:column;overflow:hidden; }
+.shop-search-bar { padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0; }
+.shop-search-bar input { width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Noto Sans Hebrew',sans-serif;font-size:13px;padding:6px 10px;outline:none;direction:rtl; }
+.shop-search-bar input:focus { border-color:var(--cyan-dim); }
+.items-grid { flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;align-content:start; }
+.items-grid::-webkit-scrollbar { width:4px; }
+.items-grid::-webkit-scrollbar-thumb { background:var(--cyan-dim); }
+.item-card { background:var(--bg3);border:1px solid var(--border);padding:10px 12px;cursor:pointer;transition:all 0.15s;position:relative; }
+.item-card:hover { border-color:var(--cyan-dim);background:rgba(0,229,255,0.03); }
+.item-card.cant-afford { opacity:0.4;cursor:not-allowed; }
+.item-card.cant-afford:hover { border-color:var(--border);background:var(--bg3); }
+.item-name { font-size:13px;color:var(--text);margin-bottom:4px;font-weight:700; }
+.item-stats { font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);line-height:1.6;margin-bottom:6px; }
+.item-footer { display:flex;justify-content:space-between;align-items:center; }
+.item-price { font-family:'Share Tech Mono',monospace;font-size:13px;color:var(--orange); }
+.item-legality { font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 6px;border:1px solid; }
+.leg-legal { color:var(--green);border-color:var(--green); }
+.leg-restricted { color:var(--orange);border-color:var(--orange); }
+.leg-forbidden { color:var(--red);border-color:var(--red); }
+.item-essence-tag { font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cyan);position:absolute;top:8px;left:8px; }
+.shop-footer { background:var(--panel);border-top:1px solid var(--border-bright);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px; }
+.cart-items { flex:1;display:flex;gap:8px;flex-wrap:wrap;overflow:hidden;max-height:50px; }
+.cart-tag { font-family:'Share Tech Mono',monospace;font-size:10px;background:rgba(0,229,255,0.08);border:1px solid var(--cyan-dim);color:var(--cyan);padding:2px 8px;cursor:pointer;white-space:nowrap; }
+.cart-tag:hover { background:rgba(255,34,68,0.1);border-color:var(--red);color:var(--red); }
+.cart-total { font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--orange);white-space:nowrap;flex-shrink:0; }
+.btn-buy-shop { font-family:'Share Tech Mono',monospace;font-size:12px;letter-spacing:2px;color:var(--green);background:linear-gradient(135deg,rgba(57,255,20,0.1),rgba(57,255,20,0.05));border:1px solid var(--green);padding:8px 20px;cursor:pointer;transition:all 0.2s;flex-shrink:0; }
+.btn-buy-shop:hover { box-shadow:0 0 20px rgba(57,255,20,0.2); }
+.btn-buy-shop:disabled { opacity:0.3;cursor:not-allowed; }
+.shop-empty-msg { font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:1px;align-self:center;padding:40px;text-align:center;width:100%; }
+</style>
+
+<div class="shop-header">
+  <div class="shop-title">// BLACK MARKET //</div>
+  <div class="shop-nuyen-display">¥ <span id="shopNuyenDisplay">0</span></div>
+  <button class="btn-shop-close" onclick="closeShop()">✕ סגור</button>
+</div>
+<div class="shop-body">
+  <div class="cat-sidebar" id="catSidebar"></div>
+  <div class="shop-items-area">
+    <div class="shop-search-bar">
+      <input type="text" id="shopSearchInput" placeholder="חפש ציוד..." oninput="shopRenderItems()" />
+    </div>
+    <div class="items-grid" id="itemsGrid"></div>
+  </div>
+</div>
+<div class="shop-footer">
+  <div class="cart-items" id="cartItems">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;">// עגלה ריקה //</span>
+  </div>
+  <div class="cart-total" id="cartTotal">סה"כ: 0¥</div>
+  <button class="btn-buy-shop" id="buyBtn" onclick="completePurchase()" disabled>// קנה //</button>
+</div>
+
+</div>
+
+<!-- GM SETTINGS MODAL -->
+<div id="gmSettingsModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">// GM SETTINGS //</div>
+    <div class="setting-row">
+      <label>עצימות סיפור</label>
+      <select id="settingIntensity">
+        <option value="casual">קז׳ואל — קל ומהנה</option>
+        <option value="normal" selected>רגיל — סיפור מאוזן</option>
+        <option value="gritty">גריטי — קשה ומציאותי</option>
+        <option value="dark">חשוך — ציני ואכזרי</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>רמת אלימות</label>
+      <select id="settingViolence">
+        <option value="low">נמוך — תיאורים כלליים</option>
+        <option value="normal" selected>רגיל — תיאורים סטנדרטיים</option>
+        <option value="high">גבוה — תיאורים מפורטים</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>סגנון נרטיב</label>
+      <select id="settingNarrative">
+        <option value="action">אקשן — קצב מהיר, הרבה קרבות</option>
+        <option value="balanced" selected>מאוזן — קרב + עלילה</option>
+        <option value="roleplay">רולפליי — דגש על אינטראקציות ו-NPC</option>
+        <option value="mystery">מסתורין — חקירה, רמזים, עלילה</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>אורך תגובות GM</label>
+      <select id="settingLength">
+        <option value="short">קצר — 1-2 פסקאות</option>
+        <option value="normal" selected>רגיל — 2-4 פסקאות</option>
+        <option value="long">ארוך — 4-6 פסקאות</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-modal-save" onclick="saveGMSettings()">// שמור הגדרות //</button>
+      <button class="btn-modal-cancel" onclick="closeModal('gmSettingsModal')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONTACTS PANEL -->
+<div id="missionModal" class="modal-overlay" style="display:none" onclick="closeModal('missionModal')">
+  <div class="modal-box" onclick="event.stopPropagation()" style="width:380px">
+    <div class="modal-title">// MISSION //</div>
+    <div id="missionContent" style="font-family:'Share Tech Mono',monospace;font-size:11px;line-height:1.9;color:var(--text);">
+      <div style="color:var(--text-dim);text-align:center;padding:20px 0;">// אין משימה פעילה //<br><span style="font-size:9px;opacity:0.6">פרטי המשימה יופיעו כשה-GM ישלח אותם</span></div>
+    </div>
+    <div class="modal-btns" style="margin-top:12px">
+      <button class="btn-modal-cancel" onclick="closeModal('missionModal')">סגור</button>
+    </div>
+  </div>
+</div>
+
+<div id="contactsModal" class="modal-overlay" style="display:none" onclick="closeModal('contactsModal')">
+  <div class="modal-box" onclick="event.stopPropagation()" style="width:360px;max-height:70vh">
+    <div class="modal-title">// CONTACTS //</div>
+    <div class="contacts-list" id="contactsList">
+      <div class="contacts-empty">// אין אנשי קשר עדיין //<br><span style="font-size:9px;opacity:0.6">ה-GM יוסיף אוטומטית כשתפגוש אנשי קשר חשובים</span></div>
+    </div>
+    <div class="modal-btns" style="margin-top:8px">
+      <button class="btn-modal-cancel" onclick="closeModal('contactsModal')">סגור</button>
+    </div>
+  </div>
+</div>
+<div id="endSessionModal" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">// סיכום סשן //</div>
+    <div id="sessionSummaryLoading" style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cyan-dim);letter-spacing:1px;text-align:center;padding:20px;">
+      // GM מסכם את הסשן... //
+      <div class="typing-dots" style="justify-content:center;margin-top:10px"><span></span><span></span><span></span></div>
+    </div>
+    <div id="sessionSummaryText" class="session-log" style="display:none"></div>
+    <div class="modal-btns" id="endSessionBtns" style="display:none">
+      <button class="btn-modal-save" onclick="confirmEndSession()">// שמור וצא //</button>
+      <button class="btn-modal-cancel" onclick="closeModal('endSessionModal')">המשך לשחק</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+let apiKey = '';
+let character = {};
+let conversationHistory = [];
+const STORAGE_KEY = 'shadowrun_save';
+let gmSettings = {
+  intensity: 'normal',
+  violence: 'normal',
+  narrative: 'balanced',
+  length: 'normal'
+};
+
+const GM_INTENSITY = { casual: 'casual and fun, low stakes', normal: 'balanced dramatic tension', gritty: 'gritty and realistic, high stakes', dark: 'dark and cynical, brutal consequences' };
+const GM_VIOLENCE = { low: 'describe violence briefly without graphic detail', normal: 'standard action-movie level violence description', high: 'detailed visceral violence descriptions' };
+const GM_NARRATIVE = { action: 'fast-paced, frequent combat and action scenes', balanced: 'mix of combat, roleplay and story', roleplay: 'focus on NPC interactions, dialogue and character depth', mystery: 'investigation, clues, complex plot twists' };
+const GM_LENGTH = { short: '1-2 paragraphs per response', normal: '2-4 paragraphs per response', long: '4-6 paragraphs per response' };
+
+const RACE_HP = {
+  'Human': 10, 'Elf': 10, 'Dwarf': 11, 'Ork': 12, 'Troll': 14
+};
+
+const STARTING_GEAR = {
+  default: [
+    { name: 'Commlink (Rating 3)', stats: 'Electronics | PAN | Rating 3' },
+    { name: 'Credstick', stats: 'Gear | Standard credstick' },
+    { name: 'Armor Jacket', stats: 'Ballistic 5 / Impact 3 | Conceal: 7' },
+  ],
+  'Street Samurai': [
+    { name: 'Medkit (Rating 3)', stats: 'Medical | Rating 3' },
+    { name: 'Concealable Holster', stats: 'Gear | Hidden holster' },
+  ],
+  'Adept': [
+    { name: 'Medkit (Rating 3)', stats: 'Medical | Rating 3' },
+  ],
+  'Decker': [
+    { name: 'Datajack', stats: 'Headware | Essence: -0.2 | Direct connection' },
+  ],
+  'Rigger': [
+    { name: 'Micro-Drone (Fly-Spy)', stats: 'Drone | Recon | Fly | Body 1' },
+  ],
+  'Mage': [
+    { name: 'Spell Formula — Detection (Force 3)', stats: 'Magic | Detection spell Force 3' },
+    { name: 'Hermetic Library (Rating 2)', stats: 'Magic | Hermetic library Rating 2' },
+  ],
+  'Shaman': [
+    { name: 'Fetish — Healing (Reusable)', stats: 'Magic | Reusable healing fetish' },
+    { name: 'Fetish — Combat (Reusable)', stats: 'Magic | Reusable combat fetish' },
+  ],
+  'Face': [
+    { name: 'Fake SIN (Rating 3)', stats: 'Forged | Fake ID Rating 3' },
+    { name: 'Tailored Pheromones Level 1', stats: 'Bioware | Bio Index: -0.4 | +1 Social' },
+  ],
+};
+
+function buildSystemPrompt() {
+  const s = gmSettings;
+  const intensity = GM_INTENSITY[s.intensity] || GM_INTENSITY.normal;
+  const violence = GM_VIOLENCE[s.violence] || GM_VIOLENCE.normal;
+  const narrative = GM_NARRATIVE[s.narrative] || GM_NARRATIVE.balanced;
+  const length = GM_LENGTH[s.length] || GM_LENGTH.normal;
+
+  // Current state — injected so GM always knows exact values
+  const currentHP = document.getElementById('statHP')?.textContent || '10/10';
+  const currentStun = document.getElementById('statStun')?.textContent || '10/10';
+  const currentNuyen = document.getElementById('statNuyen')?.textContent?.replace(/,/g,'') || '0';
+  const currentLocation = document.getElementById('statLocation')?.textContent || '';
+  const currentInventory = inventory.length > 0
+    ? inventory.map(i => typeof i === 'string' ? i : i.name).join(', ')
+    : 'none';
+  const currentSpells = (character.spells && character.spells.length > 0)
+    ? character.spells.join(', ')
+    : null;
+  const isResume = conversationHistory.length > 0;
+
+  return `Shadowrun GM, 2075, cyberpunk-fantasy. Megacorps rule. Player is a Shadowrunner.
+
+CHARACTER: ${character.name} | ${character.archetype}${character.subtype ? ` (${character.subtype})` : ''} | ${character.race} | ${character.gender || 'זכר'} | ${character.city || 'Seattle'}
+
+CURRENT STATE (authoritative — do not contradict):
+- HP: ${currentHP}
+- Stun: ${currentStun}
+- Nuyen: ¥${parseInt(currentNuyen).toLocaleString()} (this is the EXACT current balance — do not add or subtract unless something happens NOW)
+- Location: ${currentLocation}
+- Inventory: ${currentInventory}
+${currentSpells ? `- Known Spells: ${currentSpells}` : ''}
+${isResume ? '- RESUMED SESSION: continue story as-is. Do NOT re-give money, gear, or advance payments already given.' : ''}
+
+STYLE: ${intensity} | ${violence} | ${narrative} | ${length}
+
+RULES:
+- Narrate in HEBREW only. Gritty, atmospheric, immersive.
+- React to player choices. Track consequences.
+- Keep agreed payments consistent — if ¥8,000 was agreed, pay exactly ¥8,000.
+
+STATE TAGS (end of response, never show player, values in English):
+[LOCATION: X] — on location change
+[NUYEN: +N] / [NUYEN: -N] — ONLY when money changes hands RIGHT NOW in this scene. Never on resume.
+[HP: cur/max] — on ANY HP change (damage OR healing). Current HP is ${currentHP} — heal naturally over time between scenes.
+[STUN: cur/max] — on stun change
+[ESSENCE: -N] — cyberware only
+[ITEM_ADD: name] — English only
+[ITEM_REMOVE: name] — MANDATORY when ANY item leaves player possession: delivered, destroyed, stolen, sold, used up, confiscated. Cross-reference the current inventory list above and send [ITEM_REMOVE:] for every item that should no longer be there.
+[CONTACT_ADD: Name | Role | Loyalty | Connection] — EVERY named NPC
+[MISSION: name | client | objective | payment | status] — send when a new mission starts or status changes (status: פעילה/הושלמה/נכשלה)
+[STREET_CRED: +1]
+
+OOC: {{ pure question }} → answer only, prefix [OOC]. Mixed "action {{ question }}" → answer OOC briefly then continue story.
+
+CONTACTS: Add fixer at game start. Add EVERY named NPC immediately.
+${!isResume ? `START: After the player describes their character, set the scene in ${character.city || 'Seattle'}, give starting gear via [ITEM_ADD:], add the fixer as a contact, and begin in media res.` : ''}`;
+}
+
+// ── SAVE / LOAD ──
+function saveState() {
+  const essence = parseFloat(document.getElementById('statEssence').textContent) || 6.0;
+  const hp = document.getElementById('statHP').textContent;
+  const stun = document.getElementById('statStun').textContent;
+  const nuyen = document.getElementById('statNuyen').textContent.replace(/,/g,'');
+  const location = document.getElementById('statLocation').textContent;
+  const streetCred = document.getElementById('statCred').textContent;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    character, conversationHistory, inventory, contacts,
+    essence, hp, stun, nuyen, location, streetCred, gmSettings, missionData
+  }));
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      character = state.character;
+      conversationHistory = state.conversationHistory;
+      if (state.gmSettings) gmSettings = state.gmSettings;
+      inventory = state.inventory || [];
+      contacts = state.contacts || [];
+      renderInventory();
+      renderContacts();
+      loadPortraitFromStorage();
+      // Restore vitals
+      if (state.essence !== undefined) {
+        const e = parseFloat(state.essence);
+        document.getElementById('statEssence').textContent = e.toFixed(1);
+        document.getElementById('barEssence').style.width = ((e / 6) * 100) + '%';
+      }
+      if (state.hp) { const [c,m] = state.hp.split('/').map(Number); if(!isNaN(c)&&!isNaN(m)) updateHPBar('statHP','barHP',c,m); }
+      if (state.stun) { const [c,m] = state.stun.split('/').map(Number); if(!isNaN(c)&&!isNaN(m)) updateHPBar('statStun','barStun',c,m); }
+      if (state.nuyen) document.getElementById('statNuyen').textContent = parseInt(state.nuyen).toLocaleString();
+      if (state.location) document.getElementById('statLocation').textContent = state.location;
+      if (state.streetCred !== undefined) document.getElementById('statCred').textContent = state.streetCred;
+      return true;
+    }
+  } catch(e) { console.error(e); }
+  return false;
+}
+
+// ── SETUP ──
+
+// On page load — check for existing save
+// ── ON LOAD — check for existing save ──
+window.addEventListener('DOMContentLoaded', () => {
+  updateSubtype(); // Initialize subtype/spell row based on default archetype
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      const c = state.character;
+      if (c && c.name) {
+        document.getElementById('resumeCard').style.display = 'block';
+        document.getElementById('newGameCard').style.display = 'none';
+        const wealthLabel = (WEALTH_CONFIG[c.wealth] || WEALTH_CONFIG.normal).label;
+        const subtypeStr = c.subtype ? ` · ${c.subtype}` : '';
+        document.getElementById('resumeCharInfo').innerHTML =
+          `שם: <span style="color:var(--cyan)">${c.name}</span><br>` +
+          `${c.archetype}${subtypeStr} · ${c.race} · ${c.gender || ''}<br>` +
+          `רמה: ${wealthLabel} · ${(state.inventory || []).length} פריטי ציוד`;
+      }
+    }
+  } catch(e) { console.error('Resume check failed:', e); }
+});
+
+function resumeGame() {
+  const key = document.getElementById('resumeApiKey').value.trim();
+  if (!key) { alert('הכנס API Key'); return; }
+  apiKey = key;
+
+  const hasSave = loadState();
+  if (!hasSave) return;
+
+  document.getElementById('sideCharName').textContent = character.name;
+  document.getElementById('sideCharType').textContent = character.archetype + ' · ' + character.race + ' · ' + (character.gender || '');
+  document.getElementById('statNuyen').textContent = (character.startingNuyen || 5000).toLocaleString();
+  document.getElementById('setupScreen').style.display = 'none';
+
+  addSystemMsg('// SESSION RESTORED — ממשיך מאיפה שהפסקת //');
+  renderSpells();
+  renderHistory();
+}
+
+function showNewGame() {
+  if (!confirm('למחוק את הדמות הקיימת ולהתחיל מחדש?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('shadowrun_portrait');
+  document.getElementById('resumeCard').style.display = 'none';
+  document.getElementById('newGameCard').style.display = 'block';
+}
+
+function startGame() {
+  const name = document.getElementById('charName').value.trim();
+  const key  = document.getElementById('apiKey').value.trim();
+  if (!name) { alert('תן שם לרנר שלך'); return; }
+  if (!key)  { alert('הכנס API Key'); return; }
+
+  apiKey = key;
+  const wealth = getSelectedWealth();
+  const subtypeRow = document.getElementById('subtypeRow');
+  const subtype = subtypeRow.style.display !== 'none'
+    ? document.getElementById('charSubtype').value.split(' —')[0]
+    : null;
+
+  const archetype = document.getElementById('charType').value;
+  // Capture spells BEFORE hiding setup screen
+  const selectedSpells = (archetype === 'Mage' || archetype === 'Shaman') ? getSelectedSpells() : [];
+  console.log('DEBUG spells captured:', selectedSpells, 'archetype:', archetype);
+
+  character = {
+    name,
+    archetype,
+    subtype,
+    race: document.getElementById('charRace').value,
+    gender: document.getElementById('charGender').value,
+    wealth,
+    startingNuyen: WEALTH_CONFIG[wealth].nuyen,
+    spells: selectedSpells
+  };
+
+  document.getElementById('statNuyen').textContent = WEALTH_CONFIG[wealth].nuyen.toLocaleString();
+  document.getElementById('sideCharName').textContent = name;
+  const subtypeDisplay = character.subtype ? ` · ${character.subtype}` : '';
+  document.getElementById('sideCharType').textContent = character.archetype + subtypeDisplay + ' · ' + character.race + ' · ' + character.gender;
+  document.getElementById('setupScreen').style.display = 'none';
+
+  conversationHistory = [];
+  inventory = [];
+  contacts = [];
+
+  // Apply race HP immediately — setupScreen is hidden, app is visible
+  const maxHP = RACE_HP[character.race] || 10;
+  updateHPBar('statHP', 'barHP', maxHP, maxHP);
+  updateHPBar('statStun', 'barStun', maxHP, maxHP);
+
+  saveState();
+  addSystemMsg('// JACKING IN — WELCOME TO THE SHADOWS //');
+  renderSpells();
+  initGame();
+}
+
+function resetGame() {
+  if (!confirm('למחוק את כל ההתקדמות?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  conversationHistory = [];
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('setupScreen').style.display = 'flex';
+}
+
+const WEALTH_CONFIG = {
+  broke:  { nuyen: 5000,   label: 'חסר כול',  desc: 'desperate runs, street-level contacts, barely surviving' },
+  normal: { nuyen: 10000,  label: 'רגיל',     desc: 'standard shadowrunner, reliable contacts, steady work' },
+  rich:   { nuyen: 30000,  label: 'עשיר',     desc: 'veteran runner, high-end gear, corpo-level jobs' }
+};
+
+const SUBTYPE_CONFIG = {
+  Shaman: {
+    label: 'טוטם',
+    options: ['Bear (דוב) — ריפוי והגנה','Wolf (זאב) — קרב וציד','Eagle (נשר) — ראייה ומודיעין','Raven (עורב) — תחבולה ומידע','Coyote (קויוט) — מזל ותרמית','Snake (נחש) — ריגול וסודות','Shark (כריש) — אגרסיה ואכזריות','Owl (ינשוף) — חוכמה ולילה']
+  },
+  Mage: {
+    label: 'מסורת מאגית',
+    options: ['Hermetic (הרמטי) — מדע ולוגיקה','Wicca — טבע ומעגלים','Vodou — רוחות ואבות קדמונים','Chaos Magic — אנרגיה גולמית','Norse — מיתולוגיה סקנדינבית']
+  },
+  Rigger: {
+    label: 'התמחות ציוד',
+    options: ['Ground Vehicles — כלי רכב קרקעיים','Drones — כטב"מים וצייד אוטונומי','Aircraft — כלי טיס','Watercraft — כלי שיט','Combat Drones — ציוד קרבי']
+  },
+  Decker: {
+    label: 'התמחות Matrix',
+    options: ['Intrusion — פריצה ומעקף אבטחה','Data Mining — חיפוש מידע','Electronic Warfare — לוחמה אלקטרונית','Black IC Specialist — פיצוח הגנות']
+  },
+  Adept: {
+    label: 'נתיב כוח',
+    options: ['Physical Adept — כוח גוף קיצוני','Mystic Adept — שילוב קסם וגוף','Invisible Way — התגנבות ורוח','Way of the Warrior — קרב ולחימה']
+  }
+};
+
+function selectWealth(el) {
+  document.querySelectorAll('.wealth-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function getSelectedWealth() {
+  const el = document.querySelector('.wealth-opt.selected');
+  return el ? el.dataset.val : 'normal';
+}
+
+function updateSubtype() {
+  const archetype = document.getElementById('charType').value;
+  const row = document.getElementById('subtypeRow');
+  const label = document.getElementById('subtypeLabel');
+  const select = document.getElementById('charSubtype');
+  const spellRow = document.getElementById('spellRow');
+
+  if (SUBTYPE_CONFIG[archetype]) {
+    const cfg = SUBTYPE_CONFIG[archetype];
+    label.textContent = cfg.label;
+    select.innerHTML = cfg.options.map(o => `<option value="${o}">${o}</option>`).join('');
+    row.style.display = 'block';
+    row.style.opacity = '0';
+    row.style.transform = 'translateY(-6px)';
+    requestAnimationFrame(() => {
+      row.style.transition = 'opacity 0.25s, transform 0.25s';
+      row.style.opacity = '1';
+      row.style.transform = 'translateY(0)';
+    });
+  } else {
+    row.style.display = 'none';
+  }
+
+  // Show spell selection for Mage/Shaman
+  if (archetype === 'Mage' || archetype === 'Shaman') {
+    const spellLabel = document.getElementById('spellLabel');
+    spellLabel.textContent = archetype === 'Shaman' ? 'בחר 4 לחשים התחלתיים (שמאן)' : 'בחר 4 לחשים התחלתיים (מאג)';
+    spellRow.style.display = 'block';
+    renderSpellGrid();
+  } else {
+    spellRow.style.display = 'none';
+  }
+}
+
+// ── PORTRAIT ──
+function loadPortrait(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('portraitImg').src = e.target.result;
+    document.getElementById('portraitImg').style.display = 'block';
+    document.getElementById('portraitPlaceholder').style.display = 'none';
+    localStorage.setItem('shadowrun_portrait', e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadPortraitFromStorage() {
+  const saved = localStorage.getItem('shadowrun_portrait');
+  if (saved) {
+    document.getElementById('portraitImg').src = saved;
+    document.getElementById('portraitImg').style.display = 'block';
+    document.getElementById('portraitPlaceholder').style.display = 'none';
+  }
+}
+
+// ── INVENTORY ──
+let inventory = [];
+
+// Keywords that identify weapons needing ammo tracking — EXCLUDES melee
+const AMMO_KEYWORDS = ['pistol','smg','rifle','shotgun','sniper','assault','carbine','hold-out','dmg:','grenade'];
+const MELEE_KEYWORDS = ['melee','reach:','stun baton','shock glove','whip','knife','katana','sword','baton','club'];
+
+function isWeapon(item) {
+  const s = ((typeof item === 'object' ? item.stats : '') || '').toLowerCase();
+  const isMelee = MELEE_KEYWORDS.some(k => s.includes(k));
+  if (isMelee) return false;
+  return AMMO_KEYWORDS.some(k => s.includes(k));
+}
+
+function renderInventory() {
+  const list = document.getElementById('inventoryList');
+  if (inventory.length === 0) {
+    list.innerHTML = '<div class="inv-empty">// NO GEAR LOADED //</div>';
+    return;
+  }
+
+  // Group non-weapons with same name
+  const groups = {};
+  const order = [];
+  inventory.forEach((item, i) => {
+    const name = typeof item === 'string' ? item : item.name;
+    const weapon = isWeapon(item);
+    if (!weapon && groups[name]) {
+      groups[name].count++;
+      groups[name].lastIndex = i;
+    } else {
+      groups[weapon ? `__weapon__${i}` : name] = { item, firstIndex: i, lastIndex: i, count: 1, isWeapon: weapon };
+      order.push(weapon ? `__weapon__${i}` : name);
+    }
+  });
+
+  list.innerHTML = order.map(key => {
+    const g = groups[key];
+    const item = g.item;
+    const name = typeof item === 'string' ? item : item.name;
+    const stats = typeof item === 'object' && item.stats ? item.stats : '';
+    const ammo = typeof item === 'object' && item.ammo !== undefined ? item.ammo : null;
+    const ammoLow = ammo !== null && ammo <= 3;
+
+    return `
+      <div class="inv-item" style="flex-direction:column;align-items:flex-start;gap:1px;padding:4px 0;">
+        <div style="display:flex;width:100%;align-items:center;gap:6px;">
+          <span style="flex:1;font-size:12px">${name}${g.count > 1 ? ` <span style="color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:10px">x${g.count}</span>` : ''}</span>
+          ${g.isWeapon ? `
+            <div class="inv-ammo">
+              <button class="inv-ammo-btn" onclick="changeAmmo(${g.firstIndex}, -1)">-</button>
+              <span class="inv-ammo-val ${ammoLow ? 'low' : ''}">${ammo !== null ? ammo : '∞'}</span>
+              <button class="inv-ammo-btn" onclick="changeAmmo(${g.firstIndex}, +1)">+</button>
+            </div>` : ''}
+          <button class="inv-remove" onclick="removeItem(${g.lastIndex})">✕</button>
+        </div>
+        ${stats ? `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);padding-right:2px">${stats}</div>` : ''}
+        ${g.isWeapon ? `<div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--orange);cursor:pointer;padding-right:2px" onclick="editAmmoType(${g.firstIndex})" title="לחץ לשינוי סוג תחמושת">${(typeof item === 'object' && item.ammoType) ? '⚡ ' + item.ammoType : '⚡ Regular'}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function removeItem(i) {
+  inventory.splice(i, 1);
+  renderInventory();
+  saveState();
+}
+
+function removeItemGroup(indices) {
+  // Remove one instance (last index to avoid shifting issues)
+  const idx = Array.isArray(indices) ? indices[indices.length - 1] : indices;
+  inventory.splice(idx, 1);
+  renderInventory();
+  saveState();
+}
+
+function editAmmoType(i) {
+  const item = inventory[i];
+  if (!item) return;
+  const current = (typeof item === 'object' && item.ammoType) ? item.ammoType : 'Regular';
+  const types = ['Regular', 'APDS', 'Hollow Point', 'Explosive', 'Gel', 'Flechette', 'Tracer', 'Subsonic'];
+  const chosen = prompt(`סוג תחמושת:\n${types.map((t,i) => `${i+1}. ${t}`).join('\n')}\n\nהקלד מספר או שם:`, current);
+  if (!chosen) return;
+  const num = parseInt(chosen);
+  const ammoType = (!isNaN(num) && num >= 1 && num <= types.length) ? types[num-1] : chosen.trim();
+  if (typeof inventory[i] === 'string') inventory[i] = { name: inventory[i], stats: '', ammoType };
+  else inventory[i].ammoType = ammoType;
+  renderInventory();
+  saveState();
+}
+
+function changeAmmo(i, delta) {
+  if (typeof inventory[i] === 'string') {
+    inventory[i] = { name: inventory[i], stats: '', ammo: Math.max(0, delta > 0 ? delta : 0) };
+  } else {
+    const cur = inventory[i].ammo !== undefined ? inventory[i].ammo : 10;
+    inventory[i].ammo = Math.max(0, cur + delta);
+  }
+  renderInventory();
+  saveState();
+}
+
+function addInventoryItem(item) {
+  const name = typeof item === 'string' ? item : item.name;
+  let obj = typeof item === 'string' ? { name: item, stats: '' } : { ...item };
+  // Auto-detect ammo count from stats for weapons
+  if (isWeapon(obj) && obj.ammo === undefined) {
+    const ammoMatch = (obj.stats || '').match(/Ammo:\s*(\d+)/i);
+    obj.ammo = ammoMatch ? parseInt(ammoMatch[1]) : 10;
+  }
+  // Allow duplicates for non-weapons (they stack in display)
+  // For weapons, prevent exact duplicates
+  if (isWeapon(obj)) {
+    if (!inventory.find(i => (typeof i === 'string' ? i : i.name).toLowerCase() === name.toLowerCase())) {
+      inventory.push(obj);
+      renderInventory();
+    }
+  } else {
+    inventory.push(obj);
+    renderInventory();
+  }
+}
+
+// ── GM SETTINGS ──
+function openGMSettings() {
+  // Populate with current settings
+  document.getElementById('settingIntensity').value = gmSettings.intensity;
+  document.getElementById('settingViolence').value = gmSettings.violence;
+  document.getElementById('settingNarrative').value = gmSettings.narrative;
+  document.getElementById('settingLength').value = gmSettings.length;
+  document.getElementById('gmSettingsModal').style.display = 'flex';
+}
+
+function saveGMSettings() {
+  gmSettings = {
+    intensity: document.getElementById('settingIntensity').value,
+    violence: document.getElementById('settingViolence').value,
+    narrative: document.getElementById('settingNarrative').value,
+    length: document.getElementById('settingLength').value,
+  };
+  saveState();
+  closeModal('gmSettingsModal');
+  addSystemMsg('// הגדרות GM עודכנו — יכנסו לתוקף בהודעה הבאה //');
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+
+// ── END SESSION ──
+async function endSession() {
+  document.getElementById('endSessionModal').style.display = 'flex';
+  document.getElementById('sessionSummaryLoading').style.display = 'block';
+  document.getElementById('sessionSummaryText').style.display = 'none';
+  document.getElementById('endSessionBtns').style.display = 'none';
+
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 600,
+        messages: [
+          { role: 'system', content: 'You are a Shadowrun GM. Write a SHORT session summary in Hebrew (עברית). 3-5 bullet points max. Cover: what happened, key decisions, notable NPCs, current situation. Format with • bullets. No state tags.' },
+          ...conversationHistory,
+          { role: 'user', content: 'סכם את הסשן הזה בקצרה לשחקן.' }
+        ]
+      })
+    });
+    const data = await response.json();
+    const summary = data.choices?.[0]?.message?.content || 'לא ניתן לייצר סיכום.';
+
+    document.getElementById('sessionSummaryLoading').style.display = 'none';
+    document.getElementById('sessionSummaryText').style.display = 'block';
+    document.getElementById('sessionSummaryText').textContent = summary;
+    document.getElementById('endSessionBtns').style.display = 'flex';
+
+    // Save summary to state
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    saved.lastSessionSummary = summary;
+    saved.lastSessionDate = new Date().toLocaleDateString('he-IL');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+
+  } catch(e) {
+    document.getElementById('sessionSummaryLoading').style.display = 'none';
+    document.getElementById('sessionSummaryText').style.display = 'block';
+    document.getElementById('sessionSummaryText').textContent = 'שגיאה בייצור הסיכום.';
+    document.getElementById('endSessionBtns').style.display = 'flex';
+  }
+}
+
+function confirmEndSession() {
+  saveState();
+  closeModal('endSessionModal');
+  addSystemMsg('// סשן נשמר — להתראות בצללים //');
+}
+// ── SHOP CATALOG ──
+const CATALOG = {
+  'אקדחים — Hold-out': [
+    { name: 'Streetline Special', stats: 'Hold-out | Dmg: 4L | Ammo: 6(c)', price: 100, legality: 'restricted', essence: 0 },
+    { name: 'Walther Palm Pistol', stats: 'Hold-out | Dmg: 4L | Ammo: 2(b)', price: 200, legality: 'restricted', essence: 0 },
+    { name: 'Morrissey Élan', stats: 'Hold-out | Dmg: 5L | Ammo: 5(c)', price: 500, legality: 'restricted', essence: 0 },
+    { name: 'Cavalier Scout', stats: 'Hold-out | Dmg: 4L | Ammo: 7(c)', price: 600, legality: 'restricted', essence: 0 },
+  ],
+  'אקדחים — כבדים': [
+    { name: 'Ares Predator', stats: 'Heavy Pistol | Dmg: 9M | Ammo: 15(c)', price: 450, legality: 'restricted', essence: 0 },
+    { name: 'Ares Predator II (Smartgun)', stats: 'Heavy Pistol | Dmg: 9M | Ammo: 15(c) | Smartgun', price: 550, legality: 'restricted', essence: 0 },
+    { name: 'Browning Max-Power', stats: 'Heavy Pistol | Dmg: 9M | Ammo: 10(c)', price: 450, legality: 'restricted', essence: 0 },
+    { name: 'Ruger Super Warhawk', stats: 'Heavy Pistol | Dmg: 10M | Ammo: 6(y)', price: 300, legality: 'restricted', essence: 0 },
+    { name: 'Savalette Guardian', stats: 'Heavy Pistol | Dmg: 9M | Ammo: 12(c) | S/B', price: 900, legality: 'restricted', essence: 0 },
+  ],
+  'SMG': [
+    { name: 'HK227 (Gas Vent 2)', stats: 'SMG | Dmg: 7M | Ammo: 28(c) | S/B/F', price: 1500, legality: 'forbidden', essence: 0 },
+    { name: 'Ingram Smartgun', stats: 'SMG | Dmg: 7M | Ammo: 32(c) | B/F | Smartgun', price: 950, legality: 'forbidden', essence: 0 },
+    { name: 'Uzi III', stats: 'SMG | Dmg: 6M | Ammo: 24(c) | B', price: 600, legality: 'forbidden', essence: 0 },
+    { name: 'AK-97 Carbine', stats: 'SMG/Carbine | Dmg: 6M | Ammo: 30(c) | S/B/F', price: 800, legality: 'forbidden', essence: 0 },
+  ],
+  'רובים': [
+    { name: 'AK-97', stats: 'Assault | Dmg: 8M | Ammo: 38(c) | S/B/F', price: 700, legality: 'forbidden', essence: 0 },
+    { name: 'Ares Alpha', stats: 'Assault | Dmg: 8M | Ammo: 42(c) | S/B/F | GL', price: 2000, legality: 'forbidden', essence: 0 },
+    { name: 'FN HAR', stats: 'Assault | Dmg: 8M | Ammo: 35(c) | S/B/F', price: 1200, legality: 'forbidden', essence: 0 },
+    { name: 'Remington 750', stats: 'Sporting | Dmg: 7S | Ammo: 5(m)', price: 600, legality: 'restricted', essence: 0 },
+    { name: 'Ranger Arms SM-3', stats: 'Sniper | Dmg: 14S | Ammo: 6(m) | Silencer', price: 4000, legality: 'forbidden', essence: 0 },
+    { name: 'Defiance T-250', stats: 'Shotgun | Dmg: 10S | Ammo: 5(m)', price: 1400, legality: 'restricted', essence: 0 },
+    { name: 'Enfield AS-7', stats: 'Shotgun | Dmg: 8S | Ammo: 10(c) | S/B', price: 1000, legality: 'restricted', essence: 0 },
+  ],
+  'נשק קרוב': [
+    { name: 'Knife', stats: 'Melee | Dmg: STR+L | Conceal: 8', price: 30, legality: 'legal', essence: 0 },
+    { name: 'Survival Knife', stats: 'Melee | Dmg: STR+2L | Conceal: 6', price: 450, legality: 'legal', essence: 0 },
+    { name: 'Katana', stats: 'Melee | Dmg: STR+3M | Reach: 1', price: 1000, legality: 'restricted', essence: 0 },
+    { name: 'Stun Baton', stats: 'Melee | Dmg: 6S Stun | Reach: 1', price: 750, legality: 'restricted', essence: 0 },
+    { name: 'Monofilament Whip', stats: 'Melee | Dmg: 10S | Reach: 2', price: 3000, legality: 'forbidden', essence: 0 },
+    { name: 'Shock Glove', stats: 'Melee | Dmg: 7S Stun | Conceal: 9', price: 950, legality: 'restricted', essence: 0 },
+  ],
+  'שריון': [
+    { name: 'Armor Jacket', stats: 'Ballistic 5 / Impact 3 | Conceal: 7', price: 900, legality: 'legal', essence: 0 },
+    { name: 'Armor Vest', stats: 'Ballistic 2 / Impact 1 | Conceal: 12', price: 200, legality: 'legal', essence: 0 },
+    { name: 'Lined Coat', stats: 'Ballistic 4 / Impact 2 | Conceal: 8', price: 700, legality: 'legal', essence: 0 },
+    { name: 'Form-Fitting Body Armor (Full)', stats: 'Ballistic 4 / Impact 1 | Conceal: 12', price: 2000, legality: 'legal', essence: 0 },
+    { name: 'Heavy Armor — Full Suit', stats: 'Ballistic 8 / Impact 6', price: 20000, legality: 'forbidden', essence: 0 },
+    { name: 'Secure Long Coat (Kelmar)', stats: 'Ballistic 4 / Impact 2 | Conceal: 10', price: 650, legality: 'legal', essence: 0 },
+  ],
+  'ציוד שדה': [
+    { name: 'Medkit (Rating 3)', stats: 'Medical | Rating 3', price: 200, legality: 'legal', essence: 0 },
+    { name: 'Gas Mask + Air Tank', stats: 'Survival | Chemical protection', price: 1000, legality: 'legal', essence: 0 },
+    { name: 'Survival Kit', stats: 'Survival | Basic field kit', price: 100, legality: 'legal', essence: 0 },
+    { name: 'Climbing Gear Kit', stats: 'Gear | Full climbing kit', price: 250, legality: 'legal', essence: 0 },
+    { name: 'Pocket Secretary', stats: 'Electronics | Pocket computer', price: 2000, legality: 'legal', essence: 0 },
+    { name: 'Concealable Holster', stats: 'Gear | Hidden holster', price: 100, legality: 'legal', essence: 0 },
+    { name: 'DocWagon Gold Contract', stats: 'Service | Annual emergency medical', price: 25000, legality: 'legal', essence: 0 },
+    { name: 'Slap Patch — Trauma (Rating 6)', stats: 'Medical | Emergency treatment', price: 500, legality: 'legal', essence: 0 },
+  ],
+  'רימונים ותחמושת': [
+    { name: 'Grenade — Offensive HE', stats: 'Grenade | Dmg: 10S | Blast: -1/1m', price: 30, legality: 'forbidden', essence: 0 },
+    { name: 'Grenade — Concussion', stats: 'Grenade | Dmg: 12M Stun', price: 30, legality: 'forbidden', essence: 0 },
+    { name: 'Grenade — Smoke', stats: 'Grenade | Smoke cover', price: 30, legality: 'legal', essence: 0 },
+    { name: 'Grenade — Neuro-Stun VII', stats: 'Grenade | Dmg: 8S Stun | Gas', price: 60, legality: 'forbidden', essence: 0 },
+    { name: 'Plastic Explosive C-4', stats: 'Explosive | Dmg: 6 | Per kg', price: 80, legality: 'forbidden', essence: 0 },
+    { name: 'APDS (10 rounds)', stats: 'Ammo | ½ Ballistic armor', price: 70, legality: 'forbidden', essence: 0 },
+    { name: 'Explosive Rounds (10)', stats: 'Ammo | +1 Power', price: 50, legality: 'restricted', essence: 0 },
+    { name: 'Gel Rounds (10)', stats: 'Ammo | -2 Power Stun', price: 30, legality: 'legal', essence: 0 },
+    { name: 'Regular Ammo (10)', stats: 'Ammo | Standard', price: 20, legality: 'legal', essence: 0 },
+  ],
+  'שתלים — ראש': [
+    { name: 'Datajack', stats: 'Headware | Essence: -0.2 | Direct connection', price: 1000, legality: 'legal', essence: 0.2 },
+    { name: 'Chipjack (3 slots)', stats: 'Headware | Essence: -0.3 | 3 slots', price: 3000, legality: 'legal', essence: 0.3 },
+    { name: 'Commlink IV', stats: 'Headware | Essence: -0.3 | Rating 4', price: 18000, legality: 'legal', essence: 0.3 },
+    { name: 'Encephalon Level 1', stats: 'Headware | Essence: -0.75 | +1 Int pools', price: 40000, legality: 'legal', essence: 0.75 },
+  ],
+  'שתלים — גוף': [
+    { name: 'Wired Reflexes 1', stats: 'Bodyware | Essence: -2.0 | +1 Reaction+Init', price: 55000, legality: 'restricted', essence: 2.0 },
+    { name: 'Wired Reflexes 2', stats: 'Bodyware | Essence: -3.0 | +2 Reaction+Init', price: 165000, legality: 'restricted', essence: 3.0 },
+    { name: 'Boosted Reflexes 1', stats: 'Bodyware | Essence: -0.5 | +1 Reaction', price: 15000, legality: 'restricted', essence: 0.5 },
+    { name: 'Muscle Replacement (Rating 1)', stats: 'Bodyware | Essence: -1 | +1 Str/Qui', price: 20000, legality: 'restricted', essence: 1.0 },
+    { name: 'Bone Lacing — Plastic', stats: 'Bodyware | Essence: -0.5 | +1 Body armor', price: 7500, legality: 'restricted', essence: 0.5 },
+    { name: 'Bone Lacing — Titanium', stats: 'Bodyware | Essence: -2.25 | +3 Body armor', price: 75000, legality: 'restricted', essence: 2.25 },
+    { name: 'Dermal Plating Level 1', stats: 'Bodyware | Essence: -0.5 | +1/+1 Armor', price: 6000, legality: 'restricted', essence: 0.5 },
+  ],
+  'שתלים — חושים': [
+    { name: 'Cybereyes — Low-Light', stats: 'Sensory | Essence: -0.2 | Night vision', price: 3000, legality: 'legal', essence: 0.2 },
+    { name: 'Cybereyes — Thermographic', stats: 'Sensory | Essence: -0.2 | Heat vision', price: 3000, legality: 'legal', essence: 0.2 },
+    { name: 'Smartlink Level I', stats: 'Sensory | Essence: -0.5 | Weapon link', price: 2500, legality: 'restricted', essence: 0.5 },
+    { name: 'Hearing Amplification', stats: 'Sensory | Essence: -0.2 | Enhanced hearing', price: 3500, legality: 'legal', essence: 0.2 },
+    { name: 'Balance Augmenter', stats: 'Sensory | Essence: -0.4 | Balance boost', price: 14000, legality: 'legal', essence: 0.4 },
+  ],
+  'ביוואר': [
+    { name: 'Orthoskin Level 1', stats: 'Bioware | Bio Index: -0.5 | +1/+1 Armor', price: 25000, legality: 'restricted', essence: 0 },
+    { name: 'Synaptic Accelerator Level 1', stats: 'Bioware | Bio Index: -0.4 | +1 Reaction', price: 75000, legality: 'restricted', essence: 0 },
+    { name: 'Platelet Factory', stats: 'Bioware | Bio Index: -0.4 | Accelerated healing', price: 30000, legality: 'legal', essence: 0 },
+    { name: 'Pain Editor', stats: 'Bioware | Bio Index: -0.6 | Ignore pain', price: 60000, legality: 'restricted', essence: 0 },
+    { name: 'Tailored Pheromones Level 1', stats: 'Bioware | Bio Index: -0.4 | +1 Social', price: 20000, legality: 'legal', essence: 0 },
+  ],
+  'ציוד שמאן ומאג': [
+    { name: 'Fetish — Healing (Reusable)', stats: 'Magic | Reusable healing fetish', price: 500, legality: 'legal', essence: 0 },
+    { name: 'Fetish — Combat (Reusable)', stats: 'Magic | Reusable combat fetish', price: 200, legality: 'legal', essence: 0 },
+    { name: 'Fetish — Combat (Expendable x5)', stats: 'Magic | 5x expendable combat fetish', price: 100, legality: 'legal', essence: 0 },
+    { name: 'Medicine Lodge Materials (Rating 3)', stats: 'Magic | Ritual materials | Rating 3', price: 1500, legality: 'legal', essence: 0 },
+    { name: 'Elemental Conjuration — Fire (Force 3)', stats: 'Magic | Fire Elemental | Force 3', price: 3000, legality: 'legal', essence: 0 },
+    { name: 'Elemental Conjuration — Water (Force 3)', stats: 'Magic | Water Elemental | Force 3', price: 3000, legality: 'legal', essence: 0 },
+    { name: 'Elemental Conjuration — Air (Force 3)', stats: 'Magic | Air Elemental | Force 3', price: 3000, legality: 'legal', essence: 0 },
+    { name: 'Elemental Conjuration — Earth (Force 3)', stats: 'Magic | Earth Elemental | Force 3', price: 3000, legality: 'legal', essence: 0 },
+    { name: 'Spell Formula — Combat (Force 4)', stats: 'Magic | Combat spell formula Force 4', price: 2000, legality: 'restricted', essence: 0 },
+    { name: 'Sustaining Focus (Force 3)', stats: 'Magic | Sustaining focus Force 3', price: 45000, legality: 'restricted', essence: 0 },
+    { name: 'Enchanting Kit', stats: 'Magic | Basic magic kit', price: 10000, legality: 'legal', essence: 0 },
+  ],
+  'Matrix': [
+    { name: 'Allegiance Sigma', stats: 'Cyberdeck | MPCP 3 | Mem 200/500', price: 14000, legality: 'restricted', essence: 0 },
+    { name: 'Sony CTY-360-D', stats: 'Cyberdeck | MPCP 5 | Mem 300/600', price: 70000, legality: 'restricted', essence: 0 },
+    { name: 'Novatech Hyperdeck-6', stats: 'Cyberdeck | MPCP 6 | Mem 500/1000', price: 125000, legality: 'restricted', essence: 0 },
+    { name: 'CMT Avatar', stats: 'Cyberdeck | MPCP 7 | Mem 700/1400', price: 250000, legality: 'restricted', essence: 0 },
+    { name: 'Attack (Rating 4)', stats: 'Program | 48Mp | ×3 utility', price: 9600, legality: 'forbidden', essence: 0 },
+    { name: 'Sleaze (Rating 4)', stats: 'Program | 48Mp | ×3 utility', price: 9600, legality: 'forbidden', essence: 0 },
+    { name: 'Browse (Rating 4)', stats: 'Program | 16Mp | Legal', price: 3200, legality: 'legal', essence: 0 },
+    { name: 'Shield (Rating 4)', stats: 'Program | 64Mp | ×4 utility', price: 12800, legality: 'restricted', essence: 0 },
+  ],
+  'כלי רכב': [
+    { name: 'Yamaha Rapier', stats: 'Motorcycle | Speed 195 | Body 2/0', price: 12700, legality: 'legal', essence: 0 },
+    { name: 'Suzuki Aurora', stats: 'Motorcycle | Speed 210 | Body 2/0', price: 16600, legality: 'legal', essence: 0 },
+    { name: 'Harley-Davidson Scorpion', stats: 'Motorcycle | Speed 120 | Body 2/1', price: 13000, legality: 'legal', essence: 0 },
+    { name: 'Ford Americar', stats: 'Car | Speed 105 | Body 3/0', price: 20000, legality: 'legal', essence: 0 },
+    { name: 'Chrysler-Nissan Jackrabbit', stats: 'Car | Speed 90 | Economical | Body 3/0', price: 16500, legality: 'legal', essence: 0 },
+    { name: 'Toyota Elite', stats: 'Car | Speed 120 | Luxury | Body 3/0', price: 66400, legality: 'legal', essence: 0 },
+    { name: 'Eurocar Westwind 2000', stats: 'Sports Car | Speed 210 | Body 3/0', price: 57000, legality: 'legal', essence: 0 },
+    { name: 'GMC Bulldog Step-van', stats: 'Van | Speed 85 | Body 4/2', price: 32600, legality: 'legal', essence: 0 },
+    { name: 'Landrover 2046 Van', stats: 'Van | Speed 100 | 4x4 | Body 4/1', price: 32000, legality: 'legal', essence: 0 },
+    { name: 'Ares Roadmaster', stats: 'Armored Truck | Speed 90 | Body 5/0', price: 45000, legality: 'legal', essence: 0 },
+    { name: 'Chrysler-Nissan Patrol-1', stats: 'Security Vehicle | Speed 180 | Body 3/2', price: 43700, legality: 'restricted', essence: 0 },
+    { name: 'Aztechnology Nightrunner', stats: 'Boat | Speed 75 | Body 3/0', price: 30000, legality: 'legal', essence: 0 },
+  ],
+  'אביזרי נשק': [
+    { name: 'Sound Suppressor', stats: 'Accessory | -4 Sound signature | Conceal -2', price: 500, legality: 'restricted', essence: 0 },
+    { name: 'Bipod', stats: 'Accessory | -2 Recoil when prone/supported', price: 1200, legality: 'legal', essence: 0 },
+    { name: 'Laser Sight', stats: 'Accessory | +1 dice pool short range', price: 125, legality: 'legal', essence: 0 },
+    { name: 'Smartgun System (External)', stats: 'Accessory | Links to Smartlink | +2 dice pool', price: 400, legality: 'restricted', essence: 0 },
+    { name: 'Foregrip', stats: 'Accessory | -1 Recoil', price: 100, legality: 'legal', essence: 0 },
+    { name: 'Folding Stock', stats: 'Accessory | -1 Recoil | Conceal +2 when folded', price: 350, legality: 'legal', essence: 0 },
+    { name: 'Imaging Scope', stats: 'Accessory | Vision Magnification + Low-Light', price: 300, legality: 'legal', essence: 0 },
+    { name: 'Flashlight (Low-Light)', stats: 'Accessory | Illumination + Low-Light vision', price: 200, legality: 'legal', essence: 0 },
+    { name: 'Gas-Vent System (Rating 2)', stats: 'Accessory | -2 Recoil compensation', price: 200, legality: 'legal', essence: 0 },
+    { name: 'Powered Slide Mount (Rating 2)', stats: 'Accessory | Mount for accessories | Rating 2', price: 150, legality: 'legal', essence: 0 },
+    { name: 'Shock Pad', stats: 'Accessory | -1 Recoil | Shoulder weapons only', price: 50, legality: 'legal', essence: 0 },
+    { name: 'Melee Hardening', stats: 'Accessory | Weapon can be used as club without damage', price: 100, legality: 'legal', essence: 0 },
+    { name: 'Speed Loader', stats: 'Accessory | Free action reload for revolvers', price: 25, legality: 'legal', essence: 0 },
+    { name: 'Grenade Launcher (Underbarrel)', stats: 'Accessory | Underbarrel GL | Assault rifles only', price: 1500, legality: 'forbidden', essence: 0 },
+  ],
+  'SIN ומסמכים': [
+    { name: 'Fake SIN (Rating 2)', stats: 'Forged | Fake ID Rating 2', price: 2000, legality: 'forbidden', essence: 0 },
+    { name: 'Fake SIN (Rating 4)', stats: 'Forged | Fake ID Rating 4', price: 20000, legality: 'forbidden', essence: 0 },
+    { name: 'Fake SIN (Rating 6)', stats: 'Forged | Fake ID Rating 6', price: 60000, legality: 'forbidden', essence: 0 },
+    { name: 'Fake License (Rating 3)', stats: 'Forged | Fake weapons license Rating 3', price: 3000, legality: 'forbidden', essence: 0 },
+  ],
+  'Rigger Command Consoles': [
+    { name: 'Scratch-Built Junk RCC', stats: 'RCC | Device Rating 1 | Data Processing 3 | Firewall 2 | Slaves: 3', price: 1400, legality: 'restricted', essence: 0 },
+    { name: 'Radio Shack Remote Controller', stats: 'RCC | Device Rating 2 | Data Processing 3 | Firewall 3 | Slaves: 6', price: 8000, legality: 'restricted', essence: 0 },
+    { name: 'Essy Motors DroneMaster', stats: 'RCC | Device Rating 3 | Data Processing 4 | Firewall 4 | Slaves: 9', price: 16000, legality: 'restricted', essence: 0 },
+    { name: 'CompuForce TaskMaster', stats: 'RCC | Device Rating 4 | Data Processing 5 | Firewall 4 | Slaves: 12', price: 32000, legality: 'restricted', essence: 0 },
+    { name: 'Maersk Spider', stats: 'RCC | Device Rating 4 | Data Processing 4 | Firewall 5 | Slaves: 12', price: 34000, legality: 'restricted', essence: 0 },
+    { name: 'Maser Industrial Electronics', stats: 'RCC | Device Rating 5 | Data Processing 3 | Firewall 4 | Slaves: 15', price: 64000, legality: 'restricted', essence: 0 },
+    { name: 'Vulcan Liegelord', stats: 'RCC | Device Rating 5 | Data Processing 5 | Firewall 6 | Slaves: 15', price: 66000, legality: 'restricted', essence: 0 },
+    { name: 'Proteus Poseidon', stats: 'RCC | Device Rating 5 | Data Processing 5 | Firewall 6 | Slaves: 15', price: 68000, legality: 'restricted', essence: 0 },
+    { name: 'Lone Star Remote Commander', stats: 'RCC | Device Rating 6 | Data Processing 6 | Firewall 5 | Slaves: 18', price: 75000, legality: 'restricted', essence: 0 },
+    { name: 'MCT Drone Web', stats: 'RCC | Device Rating 6 | Data Processing 7 | Firewall 6 | Slaves: 18', price: 95000, legality: 'restricted', essence: 0 },
+    { name: 'Triox UberMensch', stats: 'RCC | Device Rating 6 | Data Processing 8 | Firewall 7 | Slaves: 18', price: 140000, legality: 'restricted', essence: 0 },
+  ],
+  'Drones': [
+    { name: 'Shiawase Kanmushi', stats: 'Micro | Handl 4 | Speed 2 | Body 0 | Armor 0 | Pilot 3 | Sensor 3 | Insect-sized recon', price: 1000, legality: 'legal', essence: 0 },
+    { name: 'S-B Microskimmer', stats: 'Micro | Handl 3 | Speed 3 | Body 0 | Armor 0 | Pilot 3 | Sensor 3 | Tiny hover drone', price: 1000, legality: 'legal', essence: 0 },
+    { name: 'MCT Fly-Spy', stats: 'Mini | Handl 4 | Speed 3 | Body 1 | Armor 0 | Pilot 3 | Sensor 3 | Flying recon', price: 2000, legality: 'legal', essence: 0 },
+    { name: 'Horizon Flying Eye', stats: 'Mini | Handl 4 | Speed 3 | Body 1 | Armor 0 | Pilot 3 | Sensor 3 | Aerial surveillance', price: 2000, legality: 'legal', essence: 0 },
+    { name: 'Aztechnology Crawler', stats: 'Small | Handl 4 | Speed 3 | Body 3 | Armor 3 | Pilot 4 | Sensor 3 | Ground crawler', price: 4000, legality: 'legal', essence: 0 },
+    { name: 'Lockheed Optic-X2', stats: 'Small | Handl 4 | Speed 4 | Body 2 | Armor 2 | Pilot 3 | Sensor 3 | High-performance aerial', price: 21000, legality: 'restricted', essence: 0 },
+    { name: 'Ares Duelist', stats: 'Medium | Handl 3 | Speed 3 | Body 4 | Armor 4 | Pilot 3 | Sensor 3 | Combat drone', price: 4500, legality: 'restricted', essence: 0 },
+    { name: 'GM-Nissan Doberman', stats: 'Medium | Handl 5 | Speed 3 | Body 4 | Armor 4 | Pilot 3 | Sensor 3 | Ground combat', price: 5000, legality: 'restricted', essence: 0 },
+    { name: 'MCT-Nissan Roto-Drone', stats: 'Medium | Handl 4 | Speed 4 | Body 4 | Armor 4 | Pilot 3 | Sensor 3 | Aerial combat', price: 5000, legality: 'legal', essence: 0 },
+    { name: 'C-D Dalmatian', stats: 'Large | Handl 5 | Speed 5 | Body 5 | Armor 5 | Pilot 3 | Sensor 3 | Heavy ground', price: 10000, legality: 'restricted', essence: 0 },
+    { name: 'Steel Lynx', stats: 'Large | Handl 5 | Speed 4 | Body 6 | Armor 12 | Pilot 3 | Sensor 3 | Heavy combat drone', price: 25000, legality: 'restricted', essence: 0 },
+  ],
+};
+
+// ── SHOP (EMBEDDED) ──
+let shopCurrentCategory = Object.keys(CATALOG)[0];
+let shopCart = [];
+
+function openShop() {
+  document.getElementById('shopOverlay').style.display = 'flex';
+  const nuyen = parseInt(document.getElementById('statNuyen').textContent.replace(/,/g,'')) || 0;
+  document.getElementById('shopNuyenDisplay').textContent = nuyen.toLocaleString();
+  shopRenderCategories();
+  shopRenderItems();
+}
+
+function closeShop() {
+  document.getElementById('shopOverlay').style.display = 'none';
+  shopCart = [];
+  document.getElementById('userInput').focus();
+}
+
+function shopRenderCategories() {
+  const sidebar = document.getElementById('catSidebar');
+  sidebar.innerHTML = Object.keys(CATALOG).map(cat => `
+    <button class="cat-btn ${cat === shopCurrentCategory ? 'active' : ''}" onclick="shopSelectCat('${cat.replace(/'/g,"\\'")}')">
+      ${cat}
+    </button>
+  `).join('');
+}
+
+function shopSelectCat(cat) {
+  shopCurrentCategory = cat;
+  shopRenderCategories();
+  shopRenderItems();
+}
+
+function shopRenderItems() {
+  const grid = document.getElementById('itemsGrid');
+  const search = document.getElementById('shopSearchInput').value.toLowerCase();
+  const nuyen = parseInt(document.getElementById('statNuyen').textContent.replace(/,/g,'')) || 0;
+  const items = search
+    ? Object.values(CATALOG).flat().filter(i => i.name.toLowerCase().includes(search) || i.stats.toLowerCase().includes(search))
+    : CATALOG[shopCurrentCategory] || [];
+
+  if (items.length === 0) {
+    grid.innerHTML = '<div class="shop-empty-msg">// לא נמצאו פריטים //</div>';
+    return;
+  }
+
+  grid.innerHTML = items.map((item, idx) => {
+    const cantAfford = item.price > nuyen;
+    const legClass = item.legality === 'legal' ? 'leg-legal' : item.legality === 'restricted' ? 'leg-restricted' : 'leg-forbidden';
+    const legLabel = item.legality === 'legal' ? 'LEGAL' : item.legality === 'restricted' ? 'RESTRICTED' : 'FORBIDDEN';
+    return `
+      <div class="item-card ${cantAfford ? 'cant-afford' : ''}" onclick="${cantAfford ? '' : `shopAddToCart(${idx}, '${(search ? '' : shopCurrentCategory).replace(/'/g,"\\'")}', ${!!search})`}">
+        ${item.essence > 0 ? `<div class="item-essence-tag">ESS -${item.essence}</div>` : ''}
+        <div class="item-name">${item.name}</div>
+        <div class="item-stats">${item.stats}</div>
+        <div class="item-footer">
+          <div class="item-price">${item.price.toLocaleString()}¥</div>
+          <div class="item-legality ${legClass}">${legLabel}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function shopAddToCart(idx, cat, fromSearch) {
+  const search = document.getElementById('shopSearchInput').value.toLowerCase();
+  const items = fromSearch
+    ? Object.values(CATALOG).flat().filter(i => i.name.toLowerCase().includes(search) || i.stats.toLowerCase().includes(search))
+    : CATALOG[cat] || [];
+  const item = items[idx];
+  if (!item) return;
+  shopCart.push({ ...item });
+  shopRenderCart();
+}
+
+function shopRenderCart() {
+  const container = document.getElementById('cartItems');
+  const totalEl = document.getElementById('cartTotal');
+  const buyBtn = document.getElementById('buyBtn');
+  const nuyen = parseInt(document.getElementById('statNuyen').textContent.replace(/,/g,'')) || 0;
+
+  if (shopCart.length === 0) {
+    container.innerHTML = '<span style="font-family:\'Share Tech Mono\',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;">// עגלה ריקה //</span>';
+    totalEl.textContent = 'סה"כ: 0¥';
+    buyBtn.disabled = true;
+    return;
+  }
+
+  const total = shopCart.reduce((s, i) => s + i.price, 0);
+  container.innerHTML = shopCart.map((item, i) =>
+    `<div class="cart-tag" onclick="shopRemoveFromCart(${i})" title="לחץ להסרה">${item.name}</div>`
+  ).join('');
+  totalEl.textContent = `סה"כ: ${total.toLocaleString()}¥`;
+  buyBtn.disabled = total > nuyen;
+}
+
+function shopRemoveFromCart(idx) {
+  shopCart.splice(idx, 1);
+  shopRenderCart();
+}
+
+function completePurchase() {
+  const total = shopCart.reduce((s, i) => s + i.price, 0);
+  const nuyen = parseInt(document.getElementById('statNuyen').textContent.replace(/,/g,'')) || 0;
+  if (total > nuyen) return;
+
+  document.getElementById('statNuyen').textContent = Math.max(0, nuyen - total).toLocaleString();
+  showNuyenDelta(total, true);
+  shopCart.forEach(item => addInventoryItem({ name: item.name, stats: item.stats || '' }));
+  shopCart.forEach(item => {
+    if (item.essence > 0) {
+      const cur = parseFloat(document.getElementById('statEssence').textContent) || 6.0;
+      const newEss = Math.max(0, cur - item.essence).toFixed(1);
+      document.getElementById('statEssence').textContent = newEss;
+      document.getElementById('barEssence').style.width = ((newEss / 6) * 100) + '%';
+    }
+  });
+
+  saveState();
+  const itemNames = shopCart.map(i => i.name).join(', ');
+  addSystemMsg(`// רכישה: ${itemNames} | -${total.toLocaleString()}¥ //`);
+
+  document.getElementById('buyBtn').textContent = '// בוצע! //';
+  setTimeout(() => {
+    shopCart = [];
+    shopRenderCart();
+    shopRenderItems();
+    document.getElementById('buyBtn').textContent = '// קנה //';
+    closeShop();
+  }, 800);
+}
+
+function showNuyenDelta(amount, isNegative) {
+  const box = document.querySelector('.nuyen-box');
+  if (!box) return;
+  const old = box.querySelector('.nuyen-delta');
+  if (old) old.remove();
+  const el = document.createElement('span');
+  el.className = 'nuyen-delta ' + (isNegative ? 'negative' : 'positive');
+  el.textContent = (isNegative ? '-' : '+') + Math.abs(amount).toLocaleString() + '¥';
+  box.appendChild(el);
+  setTimeout(() => el.remove(), 2000);
+}
+
+function manualUpdateEssence() {
+  const current = document.getElementById('statEssence').textContent;
+  const val = prompt(`Essence נוכחי: ${current}\nהכנס ערך חדש (0.0 - 6.0):`, current);
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num < 0 || num > 6) { alert('ערך לא תקין'); return; }
+  document.getElementById('statEssence').textContent = num.toFixed(1);
+  document.getElementById('barEssence').style.width = ((num / 6) * 100) + '%';
+  saveState();
+}
+
+function updateHPBar(id, barId, current, max, maxVal) {
+  const pct = Math.max(0, Math.min(100, (current / max) * 100));
+  document.getElementById(id).textContent = `${current}/${max}`;
+  document.getElementById(barId).style.width = pct + '%';
+  // color feedback
+  const fill = document.getElementById(barId);
+  if (pct < 30) fill.style.filter = 'brightness(0.7) saturate(1.5)';
+  else fill.style.filter = '';
+}
+
+function parseStateUpdates(text) {
+  const locMatch = text.match(/\[LOCATION:\s*([^\]]+)\]/i);
+  if (locMatch) document.getElementById('statLocation').textContent = locMatch[1].trim();
+
+  const nuyenMatch = text.match(/\[NUYEN:\s*([^\]]+)\]/i);
+  if (nuyenMatch) {
+    const raw = nuyenMatch[1].trim();
+    const current = parseInt(document.getElementById('statNuyen').textContent.replace(/,/g,'')) || 0;
+    const hasSign = raw.startsWith('+') || raw.startsWith('-');
+    const delta = parseInt(raw.replace(/[^-\d]/g,''));
+    if (!isNaN(delta)) {
+      const isNeg = hasSign && raw.startsWith('-');
+      const absDelta = Math.abs(delta);
+      const newVal = hasSign ? Math.max(0, current + delta) : Math.max(0, current + absDelta);
+      document.getElementById('statNuyen').textContent = newVal.toLocaleString();
+      showNuyenDelta(absDelta, isNeg);
+    }
+  }
+
+  const credMatch = text.match(/\[STREET_CRED:\s*([^\]]+)\]/i);
+  if (credMatch) {
+    const delta = parseInt(credMatch[1].replace(/[^-\d]/g,''));
+    const current = parseInt(document.getElementById('statCred').textContent) || 0;
+    if (!isNaN(delta)) document.getElementById('statCred').textContent = Math.max(0, current + delta);
+  }
+
+  // HP physical
+  const hpMatch = text.match(/\[HP:\s*(\d+)\/(\d+)\]/i);
+  if (hpMatch) updateHPBar('statHP', 'barHP', parseInt(hpMatch[1]), parseInt(hpMatch[2]));
+
+  // Stun
+  const stunMatch = text.match(/\[STUN:\s*(\d+)\/(\d+)\]/i);
+  if (stunMatch) updateHPBar('statStun', 'barStun', parseInt(stunMatch[1]), parseInt(stunMatch[2]));
+
+  // Essence
+  const essenceMatch = text.match(/\[ESSENCE:\s*([^\]]+)\]/i);
+  if (essenceMatch) {
+    const delta = parseFloat(essenceMatch[1].replace(/[^-\d.]/g,''));
+    const current = parseFloat(document.getElementById('statEssence').textContent) || 6.0;
+    if (!isNaN(delta)) {
+      const newVal = Math.max(0, Math.min(6, current + delta)).toFixed(1);
+      document.getElementById('statEssence').textContent = newVal;
+      document.getElementById('barEssence').style.width = ((newVal / 6) * 100) + '%';
+    }
+  }
+
+  // Inventory
+  const itemAddMatches = [...text.matchAll(/\[ITEM_ADD:\s*([^\]]+)\]/gi)];
+  itemAddMatches.forEach(m => addInventoryItem(m[1].trim()));
+
+  const itemRemoveMatches = [...text.matchAll(/\[ITEM_REMOVE:\s*([^\]]+)\]/gi)];
+  itemRemoveMatches.forEach(m => {
+    const name = m[1].trim().toLowerCase();
+    // Try exact match first, then partial match
+    const exactIdx = inventory.findIndex(i => (typeof i === 'string' ? i : i.name).toLowerCase() === name);
+    if (exactIdx !== -1) {
+      inventory.splice(exactIdx, 1);
+    } else {
+      // Fuzzy — remove first item whose name contains the search term
+      const fuzzyIdx = inventory.findIndex(i => {
+        const iName = (typeof i === 'string' ? i : i.name).toLowerCase();
+        return iName.includes(name) || name.includes(iName);
+      });
+      if (fuzzyIdx !== -1) inventory.splice(fuzzyIdx, 1);
+    }
+    renderInventory();
+  });
+
+  // Mission
+  const missionMatch = text.match(/\[MISSION:\s*([^\]]+)\]/i);
+  if (missionMatch) {
+    const parts = missionMatch[1].split('|').map(s => s.trim());
+    missionData = {
+      name: parts[0] || '',
+      client: parts[1] || '',
+      objective: parts[2] || '',
+      payment: parts[3] || '',
+      status: parts[4] || 'פעילה'
+    };
+    saveState();
+  }
+
+  // Contacts: [CONTACT_ADD: Name | Role | Loyalty | Connection]
+  const contactMatches = [...text.matchAll(/\[CONTACT_ADD:\s*([^\]]+)\]/gi)];
+  contactMatches.forEach(m => {
+    const parts = m[1].split('|').map(s => s.trim());
+    if (parts[0]) addContact(parts[0], parts[1] || 'Unknown', parts[2] || '?', parts[3] || '?');
+  });
+
+  return text.replace(/\[[A-Z_]+:[^\]\/]+(?:\/[^\]]+)?\]/gi, '').trim();
+}
+
+function saveState() {
+  const essence = parseFloat(document.getElementById('statEssence').textContent) || 6.0;
+  const hp = document.getElementById('statHP').textContent;
+  const stun = document.getElementById('statStun').textContent;
+  const nuyen = document.getElementById('statNuyen').textContent.replace(/,/g,'');
+  const location = document.getElementById('statLocation').textContent;
+  const streetCred = document.getElementById('statCred').textContent;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    character, conversationHistory, inventory, contacts,
+    essence, hp, stun, nuyen, location, streetCred, gmSettings, missionData
+  }));
+}
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const state = JSON.parse(saved);
+      character = state.character;
+      conversationHistory = state.conversationHistory;
+      if (state.gmSettings) gmSettings = state.gmSettings;
+      if (state.missionData) missionData = state.missionData;
+      restoreStatsFromSave(state);
+      loadPortraitFromStorage();
+      return true;
+    }
+  } catch(e) { console.error(e); }
+  return false;
+}
+
+// ── ON LOAD — check for existing save ──
+window.onload = function() {
+  // Small delay to ensure DOM is fully ready
+  setTimeout(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const state = JSON.parse(saved);
+        const c = state.character;
+        if (c && c.name) {
+          const resumeCard = document.getElementById('resumeCard');
+          const newGameCard = document.getElementById('newGameCard');
+          resumeCard.style.display = 'block';
+          newGameCard.style.display = 'none';
+          const wealthLabel = (WEALTH_CONFIG[c.wealth] || WEALTH_CONFIG.normal).label;
+          const subtypeStr = c.subtype ? ` · ${c.subtype}` : '';
+          const cityStr = c.city ? ` · ${c.city}` : '';
+          document.getElementById('resumeCharInfo').innerHTML =
+            `שם: <span style="color:var(--cyan)">${c.name}</span><br>` +
+            `${c.archetype}${subtypeStr} · ${c.race} · ${c.gender || ''}${cityStr}<br>` +
+            `רמה: ${wealthLabel} · ${(state.inventory || []).length} פריטי ציוד`;
+        }
+      }
+    } catch(e) { console.error('Resume check failed:', e); }
+  }, 100);
+};
+
+// ── EXPORT / IMPORT ──
+function loadFromFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const state = JSON.parse(ev.target.result);
+        if (!state.character) { alert('קובץ לא תקין'); return; }
+        const key = prompt('הכנס API Key:');
+        if (!key) return;
+        apiKey = key.trim();
+        localStorage.setItem(STORAGE_KEY, ev.target.result);
+        const hasSave = loadState();
+        if (!hasSave) return;
+        document.getElementById('sideCharName').textContent = character.name;
+        const subtypeDisplay = character.subtype ? ` · ${character.subtype}` : '';
+        document.getElementById('sideCharType').textContent = character.archetype + subtypeDisplay + ' · ' + character.race + ' · ' + (character.gender || '');
+        document.getElementById('setupScreen').style.display = 'none';
+        addSystemMsg('// דמות נטענה מקובץ — ממשיך מאיפה שהפסקת //');
+        renderHistory();
+      } catch(e) { alert('שגיאה בטעינת הקובץ'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function exportSave() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) { alert('אין שמירה לייצוא'); return; }
+  const blob = new Blob([saved], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `shadowrun-${character.name || 'save'}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importSave() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const state = JSON.parse(ev.target.result);
+        if (!state.character) { alert('קובץ לא תקין'); return; }
+        localStorage.setItem(STORAGE_KEY, ev.target.result);
+        alert('שמירה נטענה! רענן את הדף.');
+      } catch(e) { alert('שגיאה בטעינת הקובץ'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ── SPELLS ──
+const SPELL_LIST = {
+  'קרב': ['Stunbolt','Manabolt','Stun Ball','Mana Ball','Fireball','Lightning Bolt','Powerbolt'],
+  'זיהוי': ['Detect Life','Clairvoyance','Astral Window','Mindlink'],
+  'בריאות': ['Heal','Stabilize','Antidote','Increase Reflexes'],
+  'אשליה': ['Invisibility','Silence','Trid Phantasm'],
+  'מניפולציה': ['Levitate','Control Actions','Bind','Influence']
+};
+const ALL_SPELLS = Object.values(SPELL_LIST).flat();
+
+function renderSpellGrid() {
+  const grid = document.getElementById('spellGrid');
+  if (!grid) return;
+  const selected = getSelectedSpells();
+  grid.innerHTML = Object.entries(SPELL_LIST).map(([cat, spells]) =>
+    `<div style="grid-column:1/-1;font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--cyan);margin-top:4px;letter-spacing:1px;">${cat}</div>` +
+    spells.map(s => {
+      const checked = selected.includes(s);
+      const disabled = !checked && selected.length >= 4;
+      return `<label style="display:flex;align-items:center;gap:5px;font-family:'Share Tech Mono',monospace;font-size:10px;color:${checked ? 'var(--cyan)' : disabled ? 'var(--text-dim)' : 'var(--text)'};cursor:${disabled ? 'not-allowed' : 'pointer'}">
+        <input type="checkbox" value="${s}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} onchange="onSpellChange()" style="accent-color:var(--cyan)">
+        ${s}
+      </label>`;
+    }).join('')
+  ).join('');
+}
+
+function onSpellChange() {
+  const count = getSelectedSpells().length;
+  document.getElementById('spellCount').textContent = count;
+  renderSpellGrid();
+}
+
+function getSelectedSpells() {
+  const grid = document.getElementById('spellGrid');
+  if (!grid) return [];
+  return [...grid.querySelectorAll('input:checked')].map(i => i.value);
+}
+
+// ── MISSION STATE ──
+let missionData = { name: '', client: '', objective: '', payment: '', status: 'פעילה' };
+
+function openMission() {
+  const el = document.getElementById('missionContent');
+  if (!missionData.name) {
+    el.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:20px 0;">// אין משימה פעילה //<br><span style="font-size:9px;opacity:0.6">פרטי המשימה יופיעו כשה-GM ישלח אותם</span></div>';
+  } else {
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;">
+        <span style="color:var(--text-dim)">שם:</span><span style="color:var(--cyan)">${missionData.name}</span>
+        <span style="color:var(--text-dim)">לקוח:</span><span>${missionData.client || '—'}</span>
+        <span style="color:var(--text-dim)">מטרה:</span><span>${missionData.objective || '—'}</span>
+        <span style="color:var(--text-dim)">תשלום:</span><span style="color:var(--orange)">${missionData.payment || '—'}</span>
+        <span style="color:var(--text-dim)">סטטוס:</span><span style="color:${missionData.status === 'הושלמה' ? 'var(--green)' : missionData.status === 'נכשלה' ? 'var(--red)' : 'var(--cyan)'}">${missionData.status}</span>
+      </div>`;
+  }
+  document.getElementById('missionModal').style.display = 'flex';
+}
+
+function renderSpells() {
+  const panel = document.getElementById('spellsPanel');
+  const list = document.getElementById('spellsList');
+  if (!panel || !list) return;
+  const spells = character.spells || [];
+  if (spells.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  list.innerHTML = spells.map((s, i) => `
+    <div class="inv-item" style="padding:3px 0;display:flex;align-items:center;gap:6px;">
+      <span style="font-size:11px;flex:1">✦ ${s}</span>
+    </div>`).join('');
+}
+
+function openRules() {
+  window.open('shadowrun-rules.pdf', '_blank');
+}
+
+function openContacts() {
+  document.getElementById('contactsModal').style.display = 'flex';
+}
+
+// ── CONTACTS ──
+let contacts = [];
+
+function renderContacts() {
+  const list = document.getElementById('contactsList');
+  if (contacts.length === 0) {
+    list.innerHTML = '<div class="contacts-empty">// אין אנשי קשר //</div>';
+    return;
+  }
+  list.innerHTML = contacts.map((c, i) => `
+    <div class="contact-card">
+      <button class="contact-remove" onclick="removeContact(${i})">✕</button>
+      <div class="contact-name">${c.name}</div>
+      <div class="contact-role">${c.role}</div>
+      <div class="contact-loyalty">Loyalty: ${c.loyalty} | Connection: ${c.connection}</div>
+    </div>
+  `).join('');
+}
+
+function removeContact(i) {
+  contacts.splice(i, 1);
+  renderContacts();
+  saveState();
+}
+
+function addContact(name, role, loyalty = '?', connection = '?') {
+  if (!contacts.find(c => c.name.toLowerCase() === name.toLowerCase())) {
+    contacts.push({ name, role, loyalty, connection });
+    renderContacts();
+  }
+}
+
+function cleanApiKey(raw) {
+  return raw.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+}
+
+function resumeGame() {
+  const key = cleanApiKey(document.getElementById('resumeApiKey').value);
+  if (!key) { alert('הכנס API Key'); return; }
+  apiKey = key;
+  const hasSave = loadState();
+  if (!hasSave) return;
+  document.getElementById('sideCharName').textContent = character.name;
+  const subtypeDisplay = character.subtype ? ` · ${character.subtype}` : '';
+  document.getElementById('sideCharType').textContent = character.archetype + subtypeDisplay + ' · ' + character.race + ' · ' + (character.gender || '');
+  document.getElementById('setupScreen').style.display = 'none';
+  addSystemMsg('// SESSION RESTORED — ממשיך מאיפה שהפסקת //');
+  renderHistory();
+}
+
+function showNewGame() {
+  if (!confirm('למחוק את הדמות הקיימת ולהתחיל מחדש?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem('shadowrun_portrait');
+  document.getElementById('resumeCard').style.display = 'none';
+  document.getElementById('newGameCard').style.display = 'block';
+}
+
+function resetGame() {
+  if (!confirm('למחוק את כל ההתקדמות?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  conversationHistory = [];
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('setupScreen').style.display = 'flex';
+}
+
+function renderHistory() {
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  conversationHistory.forEach(msg => {
+    if (msg.role === 'assistant') addGMMessage(msg.content, false);
+    else if (msg.role === 'user') addPlayerMessage(msg.content, false);
+  });
+  scrollToBottom();
+}
+
+function restoreStatsFromSave(state) {
+  inventory = state.inventory || [];
+  contacts = state.contacts || [];
+  renderInventory();
+  renderContacts();
+  // Restore essence
+  if (state.essence !== undefined) {
+    const e = parseFloat(state.essence);
+    document.getElementById('statEssence').textContent = e.toFixed(1);
+    document.getElementById('barEssence').style.width = ((e / 6) * 100) + '%';
+  }
+  // Restore HP
+  if (state.hp) {
+    const [cur, max] = state.hp.split('/').map(Number);
+    if (!isNaN(cur) && !isNaN(max)) updateHPBar('statHP', 'barHP', cur, max);
+  }
+  if (state.stun) {
+    const [cur, max] = state.stun.split('/').map(Number);
+    if (!isNaN(cur) && !isNaN(max)) updateHPBar('statStun', 'barStun', cur, max);
+  }
+  // Restore nuyen from last save
+  if (state.nuyen) document.getElementById('statNuyen').textContent = parseInt(state.nuyen).toLocaleString();
+  // Restore location
+  if (state.location) document.getElementById('statLocation').textContent = state.location;
+  // Restore street cred
+  if (state.streetCred !== undefined) document.getElementById('statCred').textContent = state.streetCred;
+}
+
+async function summarizeHistory() {
+  try {
+    const toSummarize = conversationHistory.slice(0, -6); // keep last 6
+    const recent = conversationHistory.slice(-6);
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 400,
+        messages: [
+          { role: 'system', content: 'Summarize this Shadowrun RPG session history in 3-5 Hebrew sentences. Include: key events, NPCs met, locations visited, items acquired, current situation. Be concise. Output ONLY the summary, no preamble.' },
+          { role: 'user', content: toSummarize.map(m => `${m.role}: ${m.content}`).join('\n\n') }
+        ]
+      })
+    });
+    const data = await response.json();
+    if (data.choices?.[0]?.message?.content) {
+      const summary = data.choices[0].message.content;
+      conversationHistory = [
+        { role: 'user', content: `[סיכום מה שקרה עד כה]: ${summary}` },
+        { role: 'assistant', content: 'מובן. אמשיך את הסיפור מהנקודה הנוכחית.' },
+        ...recent
+      ];
+      addSystemMsg('// היסטוריה סוכמה — חוסך טוקנים //');
+      saveState();
+      renderSpells();
+    }
+  } catch(e) {
+    console.error('Summarization failed:', e);
+  }
+}
+
+async function initGame() {
+  document.getElementById('userInput').disabled = true;
+  // Show hardcoded opening message
+  const opening = 'ברוך הבא לצללים, ראנר.\n\nלפני שנתחיל — ספר לי על הדמות שלך. איך נראה הרנר שלך? מה הרקע שלו? 2-3 משפטים יספיקו.';
+  conversationHistory = [{ role: 'assistant', content: opening }];
+  saveState();
+  addGMMessage(opening, true, false);
+  document.getElementById('userInput').disabled = false;
+  document.getElementById('userInput').focus();
+}
+
+function addGMMessage(text, scroll = true, isOOC = false) {
+  const container = document.getElementById('messages');
+
+  // Remove regen button from previous last GM message
+  const prevRegens = container.querySelectorAll('.btn-regen');
+  prevRegens.forEach(btn => btn.remove());
+
+  const div = document.createElement('div');
+  div.className = isOOC ? 'msg-gm msg-gm-ooc' : 'msg-gm';
+  const clean = isOOC ? text.replace(/^\[OOC\]\s*/i, '') : parseStateUpdates(text);
+  div.innerHTML = `
+    <div class="gm-avatar">GM</div>
+    <div class="gm-bubble-wrap">
+      <div class="gm-bubble">${clean.replace(/\n/g,'<br>')}</div>
+      ${!isOOC ? `<button class="btn-regen" onclick="regenerateLast(this)">↺ נסח מחדש</button>` : ''}
+    </div>`;
+  container.appendChild(div);
+  if (scroll) scrollToBottom();
+}
+
+async function regenerateLast(btn) {
+  // Remove last GM message from DOM and history
+  const msgEl = btn.closest('.msg-gm');
+  if (!msgEl) return;
+  msgEl.remove();
+  // Remove last assistant message from history
+  if (conversationHistory.length && conversationHistory[conversationHistory.length-1].role === 'assistant') {
+    conversationHistory.pop();
+  }
+  await callClaude(null, true);
+}
+
+function addPlayerMessage(text, scroll = true) {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  const isOOC = text.startsWith('{{') && text.endsWith('}}');
+  div.className = isOOC ? 'msg-ooc' : 'msg-player';
+  div.innerHTML = isOOC
+    ? `<div class="ooc-label">// OOC //</div><div class="ooc-bubble">${text.replace(/\n/g,'<br>')}</div>`
+    : `<div class="player-label">RUNNER // ${character.name || ''}</div><div class="player-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  container.appendChild(div);
+  if (scroll) scrollToBottom();
+}
+
+function addSystemMsg(text) {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg-system';
+  div.textContent = text;
+  container.appendChild(div);
+  scrollToBottom();
+}
+
+function showTyping() {
+  const container = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'typing';
+  div.id = 'typingIndicator';
+  div.innerHTML = `<div class="gm-avatar">GM</div><div class="typing-dots"><span></span><span></span><span></span></div>`;
+  container.appendChild(div);
+  scrollToBottom();
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.remove();
+}
+
+function scrollToBottom() {
+  const el = document.getElementById('messages');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function callClaude(userText, isRegen = false) {
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('userInput').disabled = true;
+  showTyping();
+
+  if (userText) {
+    conversationHistory.push({ role: 'user', content: userText });
+  }
+
+  // ── TOKEN SAVER: summarize if history > 30 messages ──
+  if (conversationHistory.length > 30 && !isRegen) {
+    await summarizeHistory();
+  }
+
+  try {
+    const messages = [
+      { role: 'system', content: buildSystemPrompt() },
+      ...conversationHistory
+    ];
+
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 1000,
+        messages
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) {
+      hideTyping();
+      addSystemMsg('// ERROR: ' + data.error.message + ' //');
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('userInput').disabled = false;
+      return;
+    }
+
+    const reply = data.choices[0].message.content;
+    if (!isRegen) conversationHistory.push({ role: 'assistant', content: reply });
+    else {
+      if (conversationHistory.length && conversationHistory[conversationHistory.length-1].role === 'assistant') {
+        conversationHistory[conversationHistory.length-1].content = reply;
+      } else {
+        conversationHistory.push({ role: 'assistant', content: reply });
+      }
+    }
+    saveState();
+    hideTyping();
+    const isOOC = reply.trimStart().startsWith('[OOC]');
+    addGMMessage(reply, true, isOOC);
+
+  } catch(e) {
+    hideTyping();
+    addSystemMsg('// CONNECTION ERROR — CHECK API KEY //');
+    console.error(e);
+  }
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('userInput').disabled = false;
+  document.getElementById('userInput').focus();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addPlayerMessage(text);
+
+  const isPureOOC = /^\{\{[^}]+\}\}$/.test(text.trim());
+  if (isPureOOC) {
+    await callClaudeOOC(text);
+  } else {
+    // Pass as-is — system prompt handles mixed OOC within text
+    await callClaude(text);
+  }
+}
+
+async function callClaudeOOC(question) {
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('userInput').disabled = true;
+  showTyping();
+  const cleanQ = question.replace(/^\{\{|\}\}$/g, '').trim();
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        max_tokens: 500,
+        messages: [
+          { role: 'system', content: buildSystemPrompt() + '\n\nIMPORTANT: This is an OOC (Out of Character) question. Answer ONLY the question directly in Hebrew. Do NOT continue the story. Do NOT add state tags.' },
+          ...conversationHistory,
+          { role: 'user', content: `[OOC QUESTION]: ${cleanQ}` }
+        ]
+      })
+    });
+    const data = await response.json();
+    hideTyping();
+    if (data.error) { addSystemMsg('// ERROR: ' + data.error.message + ' //'); }
+    else { addGMMessage(data.choices[0].message.content, true, true); }
+  } catch(e) {
+    hideTyping();
+    addSystemMsg('// CONNECTION ERROR //');
+  }
+  document.getElementById('sendBtn').disabled = false;
+  document.getElementById('userInput').disabled = false;
+  document.getElementById('userInput').focus();
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+</script>
+</body>
+</html>
